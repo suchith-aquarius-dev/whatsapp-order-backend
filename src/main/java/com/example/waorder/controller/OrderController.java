@@ -1,5 +1,6 @@
 package com.example.waorder.controller;
 
+import com.example.waorder.config.WhatsAppProperties;
 import com.example.waorder.dto.OrderForm;
 import com.example.waorder.dto.Product;
 import com.example.waorder.model.Order;
@@ -31,13 +32,16 @@ public class OrderController {
     private final LinkTokenService linkTokenService;
     private final OrderRepository orderRepository;
     private final WhatsAppApiService whatsAppApiService;
+    private final WhatsAppProperties whatsAppProperties; // Added
 
     public OrderController(LinkTokenService linkTokenService,
                             OrderRepository orderRepository,
-                            WhatsAppApiService whatsAppApiService) {
+                            WhatsAppApiService whatsAppApiService,
+                            WhatsAppProperties whatsAppProperties) { // Added
         this.linkTokenService = linkTokenService;
         this.orderRepository = orderRepository;
         this.whatsAppApiService = whatsAppApiService;
+        this.whatsAppProperties = whatsAppProperties; // Added
     }
 
     /**
@@ -122,6 +126,7 @@ public class OrderController {
         whatsAppApiService.sendPayNowMessage(saved);
 
         model.addAttribute("order", saved);
+        model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber()); // Changed from phoneNumberId
         return "thank-you";
     }
 }

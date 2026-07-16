@@ -16,4 +16,5 @@ public class WhatsAppProperties {
     private String appBaseUrl;
     private String paymentBaseUrl;
     private String paymentTemplateName;
+    private String whatsappNumber; // Added for wa.me links
 }
