@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  thymeleaf:
+    cache: false
+  datasource:
+    url: jdbc:h2:file:./data/orders
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  h2:
+    console:
+      enabled: true
+
+whatsapp:
+  # Meta Cloud API config - fill these in from your Meta App / WABA setup
+  api-base-url: https://graph.facebook.com/v20.0
+  phone-number-id: ${WA_PHONE_NUMBER_ID:REPLACE_ME}
+  access-token: ${WA_ACCESS_TOKEN:REPLACE_ME}
+  # Verify token you choose yourself, must match what you set in Meta App Dashboard webhook config
+  webhook-verify-token: ${WA_VERIFY_TOKEN:my-verify-token}
+  # Secret used to sign the wa_id/token embedded in the order-form URL
+  link-signing-secret: ${WA_LINK_SECRET:change-this-to-a-long-random-secret}
+  # Public base URL of THIS application, used to build the order form link sent to users
+  app-base-url: ${APP_BASE_URL:https://yourdomain.com}
+  # Your payment page base URL (Razorpay/Stripe hosted checkout etc.)
+  payment-base-url: ${PAYMENT_BASE_URL:https://yourpay.example.com/checkout}
+  # Name of the approved message template used to notify users outside the 24h session window
+  payment-template-name: ${WA_PAYMENT_TEMPLATE:order_payment_ready}
