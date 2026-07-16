@@ -26,6 +26,23 @@ Combines:
 
 ## Setup
 
+Database creation:
+### Create the database and app user
+```bash
+sudo -u postgres psql
+```
+> `sudo -u postgres psql` works out of the box on **Ubuntu** because
+> Postgres uses **peer authentication** for local Unix-socket connections —
+> no password needed. This is different from `-h localhost`, which forces
+> password/TCP auth.
+
+Inside `psql`:
+```sql
+CREATE DATABASE wa_order_app;
+CREATE USER wa_order_user WITH PASSWORD 'password';
+GRANT ALL PRIVILEGES ON DATABASE wa_order_app TO wa_order_user;
+```
+
 ### 1. Meta / WhatsApp Business Platform
 - Create a Meta App with the WhatsApp product added, get:
   - Phone Number ID
