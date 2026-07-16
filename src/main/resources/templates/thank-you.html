@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Received</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 480px; margin: 60px auto; text-align: center; padding: 0 16px; }
+        .btn { display: inline-block; margin-top: 24px; padding: 14px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <h2>Thanks, your order is in!</h2>
+    <p>Order #<span th:text="${order.id}">1</span> — total ₹<span th:text="${order.totalAmount}">0</span></p>
+    <p>We've sent a payment link to your WhatsApp. Head back to the chat to complete payment.</p>
+
+    <!-- wa.me link just reopens the chat thread for convenience; the actual
+         Pay Now message was already pushed server-side via the Cloud API -->
+    <a class="btn" href="https://wa.me/15551370098">Back to WhatsApp</a>
+</body>
+</html>

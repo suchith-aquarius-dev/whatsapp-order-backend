@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Link Expired</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 480px; margin: 60px auto; text-align: center; padding: 0 16px; }
+    </style>
+</head>
+<body>
+    <h2>Oops!</h2>
+    <p th:text="${error}">This link is invalid or expired.</p>
+</body>
+</html>
