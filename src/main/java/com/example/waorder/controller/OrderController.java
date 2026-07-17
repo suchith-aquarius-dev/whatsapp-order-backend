@@ -9,6 +9,7 @@ import com.example.waorder.repository.OrderRepository;
 import com.example.waorder.service.LinkTokenService;
 import com.example.waorder.service.WhatsAppApiService;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j; // Import Slf4j
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j // Add Slf4j annotation
 @Controller
 @RequestMapping("/order")
 public class OrderController {
@@ -32,16 +34,16 @@ public class OrderController {
     private final LinkTokenService linkTokenService;
     private final OrderRepository orderRepository;
     private final WhatsAppApiService whatsAppApiService;
-    private final WhatsAppProperties whatsAppProperties; // Added
+    private final WhatsAppProperties whatsAppProperties;
 
     public OrderController(LinkTokenService linkTokenService,
                             OrderRepository orderRepository,
                             WhatsAppApiService whatsAppApiService,
-                            WhatsAppProperties whatsAppProperties) { // Added
+                            WhatsAppProperties whatsAppProperties) {
         this.linkTokenService = linkTokenService;
         this.orderRepository = orderRepository;
         this.whatsAppApiService = whatsAppApiService;
-        this.whatsAppProperties = whatsAppProperties; // Added
+        this.whatsAppProperties = whatsAppProperties;
     }
 
     /**
@@ -55,6 +57,7 @@ public class OrderController {
             // broken form if the link expired or was tampered with.
             linkTokenService.validateAndExtractWaId(token);
         } catch (Exception e) {
+            log.error("Error validating token: {}", e.getMessage());
             model.addAttribute("error", "This order link is invalid or has expired. Please message us again on WhatsApp.");
             return "link-error";
         }
@@ -80,6 +83,7 @@ public class OrderController {
         try {
             waId = linkTokenService.validateAndExtractWaId(form.getToken());
         } catch (Exception e) {
+            log.error("Error validating token on form submission: {}", e.getMessage());
             model.addAttribute("error", "This order link is invalid or has expired. Please message us again on WhatsApp.");
             return "link-error";
         }
@@ -89,44 +93,55 @@ public class OrderController {
             return "order-form";
         }
 
-        Map<String, Product> byId = CATALOG.stream()
-                .collect(java.util.stream.Collectors.toMap(Product::id, p -> p));
+        model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber()); // Always add for redirection
 
-        Order order = new Order();
-        order.setWaId(waId);
-        order.setCustomerName(form.getCustomerName());
+        try {
+            Map<String, Product> byId = CATALOG.stream()
+                    .collect(java.util.stream.Collectors.toMap(Product::id, p -> p));
 
-        BigDecimal total = BigDecimal.ZERO;
-        List<String> productIds = form.getProductIds();
-        List<Integer> quantities = form.getQuantities();
+            Order order = new Order();
+            order.setWaId(waId);
+            order.setCustomerName(form.getCustomerName());
 
-        for (int i = 0; i < productIds.size(); i++) {
-            Product product = byId.get(productIds.get(i));
-            if (product == null) continue;
-            int qty = (quantities != null && i < quantities.size() && quantities.get(i) != null)
-                    ? quantities.get(i) : 1;
+            BigDecimal total = BigDecimal.ZERO;
+            List<String> productIds = form.getProductIds();
+            List<Integer> quantities = form.getQuantities();
 
-            OrderItem item = new OrderItem();
-            item.setOrder(order);
-            item.setProductName(product.name());
-            item.setQuantity(qty);
-            item.setPrice(product.price());
-            order.getItems().add(item);
+            for (int i = 0; i < productIds.size(); i++) {
+                Product product = byId.get(productIds.get(i));
+                if (product == null) continue;
+                int qty = (quantities != null && i < quantities.size() && quantities.get(i) != null)
+                        ? quantities.get(i) : 1;
 
-            total = total.add(product.price().multiply(BigDecimal.valueOf(qty)));
+                OrderItem item = new OrderItem();
+                item.setOrder(order);
+                item.setProductName(product.name());
+                item.setQuantity(qty);
+                item.setPrice(product.price());
+                order.getItems().add(item);
+
+                total = total.add(product.price().multiply(BigDecimal.valueOf(qty)));
+            }
+            order.setTotalAmount(total);
+            order.setStatus(Order.OrderStatus.PAYMENT_LINK_SENT);
+
+            Order saved = orderRepository.save(order);
+
+            // Send the user back to WhatsApp with a Pay Now button for this order.
+            // If it's been >24h since their last message, swap this for
+            // whatsAppApiService.sendPayNowTemplate(saved) using an approved template.
+            whatsAppApiService.sendPayNowMessage(saved);
+
+            model.addAttribute("isSuccess", true);
+            model.addAttribute("message", "Thank you for your order confirmation! You’ll receive a payment link on your WhatsApp. Please use this link to finalise your payment. If for any reason, you do not receive the link within 2 mins, please initiate a new conversation.");
+            model.addAttribute("order", saved); // Pass order details for display if needed
+
+        } catch (Exception e) {
+            log.error("Failed to persist order or send WhatsApp message: {}", e.getMessage(), e);
+            model.addAttribute("isSuccess", false);
+            model.addAttribute("message", "We encountered an issue processing your order. Please click 'Continue' to return to WhatsApp and try again, or initiate a new conversation.");
         }
-        order.setTotalAmount(total);
-        order.setStatus(Order.OrderStatus.PAYMENT_LINK_SENT);
 
-        Order saved = orderRepository.save(order);
-
-        // Send the user back to WhatsApp with a Pay Now button for this order.
-        // If it's been >24h since their last message, swap this for
-        // whatsAppApiService.sendPayNowTemplate(saved) using an approved template.
-        whatsAppApiService.sendPayNowMessage(saved);
-
-        model.addAttribute("order", saved);
-        model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber()); // Changed from phoneNumberId
-        return "thank-you";
+        return "order-status-alert";
     }
 }
