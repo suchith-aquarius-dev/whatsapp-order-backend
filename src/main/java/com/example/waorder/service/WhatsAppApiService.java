@@ -32,9 +32,10 @@ public class WhatsAppApiService {
      * in the URL. This works freely inside the 24h customer-service window,
      * no template approval required.
      */
-    public void sendOrderFormLink(String waId) {
+    public void sendOrderFormLink(String waId, Long orderId) { // Modified to accept orderId
         String token = linkTokenService.generateToken(waId);
-        String formUrl = properties.getAppBaseUrl() + "/order?token=" + token;
+        // Include orderId in the formUrl
+        String formUrl = properties.getAppBaseUrl() + "/order?token=" + token + "&orderId=" + orderId;
 
         Map<String, Object> body = Map.of(
                 "messaging_product", "whatsapp",

@@ -12,6 +12,8 @@ public class OrderForm {
     @NotBlank
     private String token; // signed token carrying wa_id, from the query param
 
+    private Long orderId; // Added to carry the order ID
+
     @NotBlank
     private String customerName;
 

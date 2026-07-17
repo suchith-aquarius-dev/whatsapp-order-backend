@@ -12,6 +12,7 @@
 
         <form th:action="@{/order}" th:object="${orderForm}" method="post">
             <input type="hidden" th:field="*{token}" />
+            <input type="hidden" th:field="*{orderId}" /> <!-- Added hidden orderId field -->
 
             <div class="mb-3">
                 <label for="customerName" class="form-label">Your Name</label>
@@ -21,12 +22,14 @@
             <div class="card mb-3" th:each="product : ${products}">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="productIds" th:value="${product.id}" th:id="${'product-' + product.id}" />
+                        <input class="form-check-input" type="checkbox" name="productIds" th:value="${product.id}" th:id="${'product-' + product.id}"
+                               th:checked="${#lists.contains(orderForm.productIds, product.id)}" /> <!-- Pre-select checkbox -->
                         <label class="form-check-label" th:for="${'product-' + product.id}">
                             <span th:text="${product.name}">Product name</span>
                             — ₹<span th:text="${product.price}">0</span>
                         </label>
                     </div>
+                    <!-- Quantity will default to 1; user can adjust if editing -->
                     <input type="number" name="quantities" value="1" min="1" class="form-control w-auto" style="max-width: 80px;" />
                 </div>
             </div>

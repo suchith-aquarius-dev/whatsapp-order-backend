@@ -9,17 +9,20 @@ import com.example.waorder.repository.OrderRepository;
 import com.example.waorder.service.LinkTokenService;
 import com.example.waorder.service.WhatsAppApiService;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j; // Import Slf4j
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
-@Slf4j // Add Slf4j annotation
+@Slf4j
 @Controller
 @RequestMapping("/order")
 public class OrderController {
@@ -51,11 +54,12 @@ public class OrderController {
      * embedded in the CTA-URL button arrives here as a query param.
      */
     @GetMapping
-    public String showForm(@RequestParam String token, Model model) {
+    public String showForm(@RequestParam String token,
+                           @RequestParam(required = false) Long orderId, // Added orderId
+                           Model model) {
+        String waId;
         try {
-            // Validate up front so the user sees an error page instead of a
-            // broken form if the link expired or was tampered with.
-            linkTokenService.validateAndExtractWaId(token);
+            waId = linkTokenService.validateAndExtractWaId(token);
         } catch (Exception e) {
             log.error("Error validating token: {}", e.getMessage());
             model.addAttribute("error", "This order link is invalid or has expired. Please message us again on WhatsApp.");
@@ -64,6 +68,47 @@ public class OrderController {
 
         OrderForm form = new OrderForm();
         form.setToken(token);
+        form.setOrderId(orderId); // Set orderId in form
+
+        if (orderId != null) {
+            Optional<Order> existingOrderOpt = orderRepository.findById(orderId);
+            if (existingOrderOpt.isPresent()) {
+                Order existingOrder = existingOrderOpt.get();
+
+                // Check if the order is already finalized or payment link sent
+                if (existingOrder.getStatus() == Order.OrderStatus.PAID ||
+                    existingOrder.getStatus() == Order.OrderStatus.CANCELLED ||
+                    existingOrder.getStatus() == Order.OrderStatus.PAYMENT_LINK_SENT) { // Added PAYMENT_LINK_SENT
+                    model.addAttribute("order", existingOrder);
+                    model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber());
+
+                    String statusMessage;
+                    if (existingOrder.getStatus() == Order.OrderStatus.PAID) {
+                        statusMessage = "This order has already been paid.";
+                    } else if (existingOrder.getStatus() == Order.OrderStatus.CANCELLED) {
+                        statusMessage = "This order has been cancelled.";
+                    } else { // Order.OrderStatus.PAYMENT_LINK_SENT
+                        statusMessage = "Your order has been placed, and a payment link has been sent to your WhatsApp. Please complete the payment there.";
+                    }
+                    model.addAttribute("statusMessage", statusMessage);
+                    return "order-status"; // New template for finalized orders
+                }
+
+                // Pre-fill form with existing order details
+                form.setCustomerName(existingOrder.getCustomerName());
+                form.setProductIds(existingOrder.getItems().stream().map(item -> {
+                    // Find product ID from CATALOG based on product name
+                    return CATALOG.stream()
+                            .filter(p -> p.name().equals(item.getProductName()))
+                            .map(Product::id)
+                            .findFirst()
+                            .orElse(null); // Handle case where product name might not match
+                }).filter(java.util.Objects::nonNull).collect(Collectors.toList()));
+
+                form.setQuantities(existingOrder.getItems().stream().map(OrderItem::getQuantity).collect(Collectors.toList()));
+            }
+        }
+
         model.addAttribute("orderForm", form);
         model.addAttribute("products", CATALOG);
         return "order-form";
@@ -90,6 +135,10 @@ public class OrderController {
 
         if (bindingResult.hasErrors()) {
             model.addAttribute("products", CATALOG);
+            // If there's an orderId in the form, ensure it's passed back to the view
+            if (form.getOrderId() != null) {
+                model.addAttribute("orderId", form.getOrderId());
+            }
             return "order-form";
         }
 
@@ -99,9 +148,20 @@ public class OrderController {
             Map<String, Product> byId = CATALOG.stream()
                     .collect(java.util.stream.Collectors.toMap(Product::id, p -> p));
 
-            Order order = new Order();
-            order.setWaId(waId);
-            order.setCustomerName(form.getCustomerName());
+            Order order;
+            if (form.getOrderId() != null) {
+                // Update existing order
+                order = orderRepository.findById(form.getOrderId())
+                        .orElseThrow(() -> new IllegalArgumentException("Order not found for ID: " + form.getOrderId()));
+                order.setCustomerName(form.getCustomerName());
+                order.getItems().clear(); // Clear existing items to replace
+            } else {
+                // Create new order
+                order = new Order();
+                order.setWaId(waId);
+                order.setCustomerName(form.getCustomerName());
+            }
+
 
             BigDecimal total = BigDecimal.ZERO;
             List<String> productIds = form.getProductIds();

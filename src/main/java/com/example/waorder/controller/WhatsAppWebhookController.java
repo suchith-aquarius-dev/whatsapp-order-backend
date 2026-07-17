@@ -1,6 +1,8 @@
 package com.example.waorder.controller;
 
 import com.example.waorder.config.WhatsAppProperties;
+import com.example.waorder.model.Order;
+import com.example.waorder.repository.OrderRepository;
 import com.example.waorder.service.WhatsAppApiService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
@@ -22,10 +24,14 @@ public class WhatsAppWebhookController {
 
     private final WhatsAppProperties properties;
     private final WhatsAppApiService whatsAppApiService;
+    private final OrderRepository orderRepository; // Inject OrderRepository
 
-    public WhatsAppWebhookController(WhatsAppProperties properties, WhatsAppApiService whatsAppApiService) {
+    public WhatsAppWebhookController(WhatsAppProperties properties,
+                                     WhatsAppApiService whatsAppApiService,
+                                     OrderRepository orderRepository) { // Add to constructor
         this.properties = properties;
         this.whatsAppApiService = whatsAppApiService;
+        this.orderRepository = orderRepository; // Initialize
     }
 
     /**
@@ -69,10 +75,16 @@ public class WhatsAppWebhookController {
                         String type = message.path("type").asText();
                         log.info("Inbound WhatsApp message from {} type={}", waId, type);
 
+                        // Create a new order with CREATED status
+                        Order newOrder = new Order();
+                        newOrder.setWaId(waId);
+                        newOrder.setStatus(Order.OrderStatus.CREATED);
+                        Order savedOrder = orderRepository.save(newOrder); // Save to get the ID
+
                         // Any inbound message (text, or tapping a quick reply) triggers
                         // sending the order-form link. Customize this condition to match
                         // on specific keywords ("order", "menu") if needed.
-                        whatsAppApiService.sendOrderFormLink(waId);
+                        whatsAppApiService.sendOrderFormLink(waId, savedOrder.getId()); // Pass order ID
                     }
                 }
             }
