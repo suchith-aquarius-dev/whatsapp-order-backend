@@ -84,6 +84,20 @@ public class WhatsAppApiService {
     }
 
     /**
+     * Sends a simple text message to the specified WhatsApp ID.
+     * This can be used for order confirmations, cancellations, etc.
+     */
+    public void sendTextMessage(String waId, String message) {
+        Map<String, Object> body = Map.of(
+                "messaging_product", "whatsapp",
+                "to", waId,
+                "type", "text",
+                "text", Map.of("body", message)
+        );
+        postToGraphApi(body);
+    }
+
+    /**
      * Fallback for when we're OUTSIDE the 24h session window: an approved
      * Utility template with a dynamic URL button must be used instead of a
      * free-form message. Template must already exist & be approved in Meta

@@ -2,6 +2,7 @@ package com.example.waorder.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.envers.Audited; // Import Audited
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -11,6 +12,7 @@ import java.util.List;
 @Data
 @Entity
 @Table(name = "orders")
+@Audited // Add Audited annotation
 public class Order {
 
     @Id

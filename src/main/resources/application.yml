@@ -13,8 +13,9 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
-    properties: # Added this section
-      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect # Added this line
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+      hibernate.envers.revision_entity_class: com.example.waorder.model.CustomRevisionEntity # Added this line
 
 whatsapp:
   # Meta Cloud API config - fill these in from your Meta App / WABA setup

@@ -52,6 +52,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Hibernate Envers for auditing -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-envers</artifactId>
+        </dependency>
+
         <!-- Validation for form + webhook payloads -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
