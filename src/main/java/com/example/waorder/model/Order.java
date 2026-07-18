@@ -6,6 +6,8 @@ import org.hibernate.envers.Audited; // Import Audited
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +26,12 @@ public class Order {
     private String waId;
 
     private String customerName;
+
+    /** Date the customer wants the order delivered. */
+    private LocalDate deliveryDate;
+
+    /** Time of day (on deliveryDate) the customer wants the order delivered. */
+    private LocalTime deliveryTime;
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status = OrderStatus.CREATED;

@@ -9,6 +9,12 @@
         <div class="wa-card p-4 mt-3">
             <p class="lead mb-1">Total Amount: ₹<span th:text="${order.totalAmount}">0</span></p>
             <p class="wa-muted">Current Status: <span th:text="${order.status}">PAYMENT_LINK_SENT</span></p>
+            <p th:if="${order.deliveryDate != null}" class="wa-muted">
+                Delivery: <strong th:text="${#temporals.format(order.deliveryDate, 'dd MMM yyyy')}">01 Jan 2026</strong>
+                <span th:if="${order.deliveryTime != null}">
+                    at <strong th:text="${#temporals.format(order.deliveryTime, 'hh:mm a')}">10:00 AM</strong>
+                </span>
+            </p>
 
             <div th:if="${isOrderFinalized}" class="alert alert-info mt-3" role="alert">
                 <p class="mb-0" th:text="${statusMessage}">This order has already been finalized.</p>

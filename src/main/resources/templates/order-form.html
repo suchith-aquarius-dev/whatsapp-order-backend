@@ -349,6 +349,22 @@
             <input type="text" id="customerName" th:field="*{customerName}" class="form-control" placeholder="Enter your name" required />
         </div>
 
+        <!-- Delivery Date & Time -->
+        <div class="mb-4">
+            <label class="form-label">Delivery Date &amp; Time</label>
+            <div class="row g-2">
+                <div class="col-7">
+                    <input type="date" id="deliveryDate" th:field="*{deliveryDate}" class="form-control" required />
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('deliveryDate')}" th:errors="*{deliveryDate}">Please select a delivery date</div>
+                    <div class="text-danger small mt-1" id="deliveryDateClientError" style="display:none;">This date is not available for delivery. Please choose another date.</div>
+                </div>
+                <div class="col-5">
+                    <input type="time" id="deliveryTime" th:field="*{deliveryTime}" class="form-control" required />
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('deliveryTime')}" th:errors="*{deliveryTime}">Please select a delivery time</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Category Dropdown -->
         <div class="mb-4">
             <label for="categorySelect" class="form-label">Select Category</label>
@@ -445,7 +461,7 @@
 </div>
 
 <!-- Cart review offcanvas -->
-<div class="offcanvas offcanvas-bottom wa-cart-offcanvas" tabindex="-1" id="cartOffcanvas" aria-labelledby="cartOffcanvasLabel">
+    <div class="offcanvas offcanvas-bottom wa-cart-offcanvas" tabindex="-1" id="cartOffcanvas" aria-labelledby="cartOffcanvasLabel">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="cartOffcanvasLabel">Your Order</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -468,6 +484,51 @@
     /*<![CDATA[*/
     document.addEventListener('DOMContentLoaded', function() {
         const orderForm = document.getElementById('orderForm');
+
+        /* Admin-configured delivery availability rules, injected server-side */
+        const blockedDates = /*[[${blockedDates}]]*/ [];
+        const weeklyOffJsDays = /*[[${weeklyOffJsDays}]]*/ [];
+        const blockedDatesSet = new Set(blockedDates);
+        const weeklyOffDaysSet = new Set(weeklyOffJsDays);
+
+        function isDeliveryDateBlocked(dateStr) {
+            if (!dateStr) {
+                return false;
+            }
+            if (blockedDatesSet.has(dateStr)) {
+                return true;
+            }
+            // dateStr is "yyyy-MM-dd"; parse as local date (avoid UTC shift issues)
+            const parts = dateStr.split('-').map(Number);
+            const asLocalDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            return weeklyOffDaysSet.has(asLocalDate.getDay());
+        }
+
+        // Prevent picking a delivery date in the past
+        const deliveryDateInput = document.getElementById('deliveryDate');
+        const deliveryDateClientError = document.getElementById('deliveryDateClientError');
+        if (deliveryDateInput) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            deliveryDateInput.setAttribute('min', yyyy + '-' + mm + '-' + dd);
+
+            function validateDeliveryDate() {
+                if (isDeliveryDateBlocked(deliveryDateInput.value)) {
+                    deliveryDateInput.setCustomValidity('This date is not available for delivery.');
+                    deliveryDateClientError.style.display = 'block';
+                } else {
+                    deliveryDateInput.setCustomValidity('');
+                    deliveryDateClientError.style.display = 'none';
+                }
+            }
+
+            deliveryDateInput.addEventListener('change', validateDeliveryDate);
+            deliveryDateInput.addEventListener('input', validateDeliveryDate);
+            // Validate any pre-filled value (e.g. editing an existing order) on load
+            validateDeliveryDate();
+        }
 
         // Function to update quantity input state
         function updateQuantityInputState(checkbox) {

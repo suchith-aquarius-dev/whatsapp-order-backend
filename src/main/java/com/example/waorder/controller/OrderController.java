@@ -9,6 +9,7 @@ import com.example.waorder.model.OrderItem;
 import com.example.waorder.model.ProductEntity;
 import com.example.waorder.model.ProductVariant;
 import com.example.waorder.repository.OrderRepository;
+import com.example.waorder.service.DeliverySettingsService;
 import com.example.waorder.service.LinkTokenService;
 import com.example.waorder.service.ProductService;
 import com.example.waorder.service.WhatsAppApiService;
@@ -35,17 +36,20 @@ public class OrderController {
     private final WhatsAppApiService whatsAppApiService;
     private final WhatsAppProperties whatsAppProperties;
     private final ProductService productService;
+    private final DeliverySettingsService deliverySettingsService;
 
     public OrderController(LinkTokenService linkTokenService,
                             OrderRepository orderRepository,
                             WhatsAppApiService whatsAppApiService,
                             WhatsAppProperties whatsAppProperties,
-                            ProductService productService) {
+                            ProductService productService,
+                            DeliverySettingsService deliverySettingsService) {
         this.linkTokenService = linkTokenService;
         this.orderRepository = orderRepository;
         this.whatsAppApiService = whatsAppApiService;
         this.whatsAppProperties = whatsAppProperties;
         this.productService = productService;
+        this.deliverySettingsService = deliverySettingsService;
     }
 
     /**
@@ -135,6 +139,8 @@ public class OrderController {
 
                 // Pre-fill form with existing order details
                 form.setCustomerName(existingOrder.getCustomerName());
+                form.setDeliveryDate(existingOrder.getDeliveryDate());
+                form.setDeliveryTime(existingOrder.getDeliveryTime());
                 // Populate productVariantIds based on existing order items
                 form.setProductVariantIds(existingOrder.getItems().stream()
                         .map(item -> {
@@ -157,6 +163,8 @@ public class OrderController {
 
         model.addAttribute("orderForm", form);
         model.addAttribute("products", catalog); // Pass dynamic catalog to view
+        model.addAttribute("blockedDates", deliverySettingsService.getHolidayDateStrings());
+        model.addAttribute("weeklyOffJsDays", deliverySettingsService.getWeeklyOffJsDayIndices());
         return "order-form";
     }
 
@@ -185,6 +193,13 @@ public class OrderController {
                 .flatMap(p -> p.getVariants().stream())
                 .collect(Collectors.toMap(ProductVariant::getId, v -> v));
 
+        // Defense in depth: re-validate the chosen delivery date against
+        // admin-configured holidays/weekly-off days server-side, since the
+        // client-side check can be bypassed.
+        if (form.getDeliveryDate() != null && deliverySettingsService.isDateBlocked(form.getDeliveryDate())) {
+            bindingResult.rejectValue("deliveryDate", "blocked",
+                    "Sorry, delivery is not available on the selected date. Please choose another date.");
+        }
 
         if (bindingResult.hasErrors()) {
             // Re-map ProductEntities to Product DTOs for the view if there are errors
@@ -204,6 +219,8 @@ public class OrderController {
             // Also pass categories and selected category back on error
             model.addAttribute("categories", productService.getAllCategories());
             model.addAttribute("selectedCategory", null); // Or try to retain previous selection
+            model.addAttribute("blockedDates", deliverySettingsService.getHolidayDateStrings());
+            model.addAttribute("weeklyOffJsDays", deliverySettingsService.getWeeklyOffJsDayIndices());
             if (form.getOrderId() != null) {
                 model.addAttribute("orderId", form.getOrderId());
             }
@@ -219,12 +236,16 @@ public class OrderController {
                 order = orderRepository.findById(form.getOrderId())
                         .orElseThrow(() -> new IllegalArgumentException("Order not found for ID: " + form.getOrderId()));
                 order.setCustomerName(form.getCustomerName());
+                order.setDeliveryDate(form.getDeliveryDate());
+                order.setDeliveryTime(form.getDeliveryTime());
                 order.getItems().clear(); // Clear existing items to replace
             } else {
                 // Create new order
                 order = new Order();
                 order.setWaId(waId);
                 order.setCustomerName(form.getCustomerName());
+                order.setDeliveryDate(form.getDeliveryDate());
+                order.setDeliveryTime(form.getDeliveryTime());
             }
 
             BigDecimal total = BigDecimal.ZERO;

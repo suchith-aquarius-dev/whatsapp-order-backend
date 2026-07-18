@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -65,6 +66,9 @@ public class WhatsAppApiService {
         String payUrl = properties.getPaymentBaseUrl() + "/" + order.getId();
 //        String cancelUrl = properties.getAppBaseUrl() + "/pay/" + order.getId() + "/cancel-from-whatsapp"; // New cancel endpoint
 
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+
         // Build the detailed order summary message
         StringBuilder messageBuilder = new StringBuilder();
         messageBuilder.append("Thanks for sending the order request, Please find the below items in the order request.\n");
@@ -74,6 +78,12 @@ public class WhatsAppApiService {
                     i + 1, item.getProductName(), item.getQuantity(), item.getPrice()));
         }
         messageBuilder.append("\nTotal = ₹").append(order.getTotalAmount());
+        if (order.getDeliveryDate() != null) {
+            messageBuilder.append("\nDelivery: ").append(order.getDeliveryDate().format(dateFormatter));
+            if (order.getDeliveryTime() != null) {
+                messageBuilder.append(" at ").append(order.getDeliveryTime().format(timeFormatter));
+            }
+        }
 
         Map<String, Object> body = Map.of(
                 "messaging_product", "whatsapp",

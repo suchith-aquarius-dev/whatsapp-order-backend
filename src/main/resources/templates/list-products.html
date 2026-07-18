@@ -96,6 +96,7 @@
     </div>
 
     <a th:href="@{/admin/products/add}" class="btn btn-primary mb-4">+ Add New Product</a>
+    <a th:href="@{/admin/delivery-settings}" class="btn btn-secondary mb-4 ms-2">Delivery Settings</a>
 
     <div th:if="${#lists.isEmpty(products)}" class="wa-empty-state">
         No products yet. Add your first one to get started.

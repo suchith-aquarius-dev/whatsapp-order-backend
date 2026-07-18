@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(pageTitle='Delivery Settings')}"></th:block>
+    <style>
+        .settings-section-title {
+            font-weight: 700;
+            font-size: 1.05rem;
+            margin-bottom: 0.25rem;
+        }
+        .settings-section-hint {
+            color: var(--wa-text-muted, #667781);
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Weekly off day toggle chips */
+        .day-toggle-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 1.25rem;
+        }
+        .day-toggle {
+            position: relative;
+        }
+        .day-toggle input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            cursor: pointer;
+        }
+        .day-toggle label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 84px;
+            padding: 10px 14px;
+            border: 1px solid var(--wa-border, #E9EDEF);
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            color: var(--wa-text, #111B21);
+            background-color: #fff;
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+        .day-toggle input:checked + label {
+            background-color: var(--wa-danger, #E35D5D);
+            border-color: var(--wa-danger, #E35D5D);
+            color: #fff;
+        }
+        .day-toggle input:focus-visible + label {
+            outline: 2px solid var(--wa-teal, #128C7E);
+            outline-offset: 2px;
+        }
+
+        /* Holiday list */
+        .holiday-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 14px;
+        }
+        .holiday-row .holiday-date {
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+        .holiday-row .holiday-reason {
+            color: var(--wa-text-muted, #667781);
+            font-size: 0.82rem;
+        }
+        .holiday-row form {
+            margin: 0;
+        }
+
+        .add-holiday-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: flex-end;
+            padding: 14px;
+            background-color: var(--wa-bg, #F0F2F5);
+            border-radius: var(--wa-radius, 10px);
+            margin-bottom: 1.25rem;
+        }
+        .add-holiday-form .form-group-inline {
+            flex: 1 1 160px;
+        }
+        .add-holiday-form label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--wa-text-muted, #667781);
+            margin-bottom: 4px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<div th:replace="~{fragments/layout :: topbar(title='Delivery Settings', subtitle='Holidays &amp; weekly off days', initials='AD', backUrl='/admin/products/list')}"></div>
+<div class="wa-container">
+
+    <div th:if="${message}" class="alert alert-success" role="alert">
+        <span th:text="${message}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-danger" role="alert">
+        <span th:text="${error}"></span>
+    </div>
+
+    <!-- Weekly off days -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="settings-section-title">Weekly Off Days</p>
+            <p class="settings-section-hint">Customers won't be able to select these days when choosing a delivery date. Applies every week.</p>
+
+            <form th:action="@{/admin/delivery-settings/weekly-off}" method="post">
+                <div class="day-toggle-group">
+                    <div class="day-toggle" th:each="day : ${allDaysOfWeek}">
+                        <input type="checkbox"
+                               th:id="${'day-' + day}"
+                               name="weeklyOffDays"
+                               th:value="${day}"
+                               th:checked="${weeklyOffDays.contains(day)}" />
+                        <label th:for="${'day-' + day}" th:text="${#strings.capitalize(#strings.toLowerCase(day.toString()).substring(0,3))}">Mon</label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success">Save Weekly Off Days</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Holidays -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="settings-section-title">Holiday Dates</p>
+            <p class="settings-section-hint">Block specific one-off dates, e.g. festivals or public holidays.</p>
+
+            <form th:action="@{/admin/delivery-settings/holidays/add}" method="post" class="add-holiday-form">
+                <div class="form-group-inline">
+                    <label for="holidayDate">Date</label>
+                    <input type="date" id="holidayDate" name="date" class="form-control" required />
+                </div>
+                <div class="form-group-inline">
+                    <label for="holidayReason">Reason (optional)</label>
+                    <input type="text" id="holidayReason" name="reason" class="form-control" placeholder="e.g. Diwali" />
+                </div>
+                <button type="submit" class="btn btn-primary">+ Add Holiday</button>
+            </form>
+
+            <div th:if="${#lists.isEmpty(holidays)}" class="wa-empty-state py-3">
+                No holidays added yet.
+            </div>
+
+            <ul class="list-group list-group-flush" th:unless="${#lists.isEmpty(holidays)}">
+                <li class="list-group-item holiday-row" th:each="holiday : ${holidays}">
+                    <div>
+                        <div class="holiday-date" th:text="${#temporals.format(holiday.date, 'dd MMM yyyy')}">01 Jan 2026</div>
+                        <div class="holiday-reason" th:if="${holiday.reason != null and !#strings.isEmpty(holiday.reason)}" th:text="${holiday.reason}">Reason</div>
+                    </div>
+                    <form th:action="@{/admin/delivery-settings/holidays/delete/{id}(id=${holiday.id})}" method="post"
+                          onsubmit="return confirm('Remove this holiday?');">
+                        <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

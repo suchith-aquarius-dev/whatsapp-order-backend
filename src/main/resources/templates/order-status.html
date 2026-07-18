@@ -8,6 +8,13 @@
     <div class="wa-container text-center">
         <p class="lead mt-3" th:text="${statusMessage}">This order is already finalized.</p>
 
+        <p th:if="${order.deliveryDate != null}" class="wa-muted mb-3">
+            Delivery: <strong th:text="${#temporals.format(order.deliveryDate, 'dd MMM yyyy')}">01 Jan 2026</strong>
+            <span th:if="${order.deliveryTime != null}">
+                at <strong th:text="${#temporals.format(order.deliveryTime, 'hh:mm a')}">10:00 AM</strong>
+            </span>
+        </p>
+
         <div class="card my-4 text-start">
             <div class="card-header">Order Items</div>
             <ul class="list-group list-group-flush">
