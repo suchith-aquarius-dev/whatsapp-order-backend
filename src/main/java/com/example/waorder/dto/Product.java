@@ -1,6 +1,6 @@
 package com.example.waorder.dto;
 
-import java.math.BigDecimal;
+import java.util.List;
 
-public record Product(String id, String name, BigDecimal price) {
+public record Product(String id, String name, String description, String category, List<ProductVariantDto> variants, List<String> imageFilenames) { // Replaced price with variants list
 }

@@ -18,7 +18,7 @@ public class OrderForm {
     private String customerName;
 
     @NotEmpty
-    private List<String> productIds;
+    private List<Long> productVariantIds; // Changed from productIds to productVariantIds
 
     private List<Integer> quantities;
 }

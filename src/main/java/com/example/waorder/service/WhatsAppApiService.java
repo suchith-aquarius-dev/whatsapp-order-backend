@@ -2,6 +2,7 @@ package com.example.waorder.service;
 
 import com.example.waorder.config.WhatsAppProperties;
 import com.example.waorder.model.Order;
+import com.example.waorder.model.OrderItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -32,7 +33,7 @@ public class WhatsAppApiService {
      * in the URL. This works freely inside the 24h customer-service window,
      * no template approval required.
      */
-    public void sendOrderFormLink(String waId, Long orderId) { // Modified to accept orderId
+    public void sendOrderFormLink(String waId, Long orderId) {
         String token = linkTokenService.generateToken(waId);
         // Include orderId in the formUrl
         String formUrl = properties.getAppBaseUrl() + "/order?token=" + token + "&orderId=" + orderId;
@@ -57,12 +58,22 @@ public class WhatsAppApiService {
     }
 
     /**
-     * Step 2: form was submitted. If we're still inside the 24h session
-     * window this sends a free-form interactive message with a "Pay Now"
-     * button linking to the hosted checkout page for this order.
+     * Step 2: form was submitted. Send a detailed order summary with "Pay Now"
+     * and "Cancel Request" buttons.
      */
     public void sendPayNowMessage(Order order) {
         String payUrl = properties.getPaymentBaseUrl() + "/" + order.getId();
+//        String cancelUrl = properties.getAppBaseUrl() + "/pay/" + order.getId() + "/cancel-from-whatsapp"; // New cancel endpoint
+
+        // Build the detailed order summary message
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("Thanks for sending the order request, Please find the below items in the order request.\n");
+        for (int i = 0; i < order.getItems().size(); i++) {
+            OrderItem item = order.getItems().get(i);
+            messageBuilder.append(String.format("%d. %s - %d : ₹%s\n",
+                    i + 1, item.getProductName(), item.getQuantity(), item.getPrice()));
+        }
+        messageBuilder.append("\nTotal = ₹").append(order.getTotalAmount());
 
         Map<String, Object> body = Map.of(
                 "messaging_product", "whatsapp",
@@ -70,8 +81,7 @@ public class WhatsAppApiService {
                 "type", "interactive",
                 "interactive", Map.of(
                         "type", "cta_url",
-                        "body", Map.of("text", "Your order #" + order.getId() + " total is ₹"
-                                + order.getTotalAmount() + ". Tap below to pay."),
+                        "body", Map.of("text", messageBuilder.toString()),
                         "action", Map.of(
                                 "name", "cta_url",
                                 "parameters", Map.of(

@@ -15,7 +15,12 @@ spring:
     show-sql: false
     properties:
       hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
-      hibernate.envers.revision_entity_class: com.example.waorder.model.CustomRevisionEntity # Added this line
+      hibernate.envers.revision_entity_class: com.example.waorder.model.CustomRevisionEntity
+
+  servlet: # Added multipart configuration
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 100MB
 
 whatsapp:
   # Meta Cloud API config - fill these in from your Meta App / WABA setup
@@ -33,4 +38,8 @@ whatsapp:
   # Name of the approved message template used to notify users outside the 24h session window
   payment-template-name: ${WA_PAYMENT_TEMPLATE:order_payment_ready}
   # Your WhatsApp phone number, used for wa.me links (e.g., 15551234567)
-  whatsapp-number: ${WA_PHONE_NUMBER:REPLACE_ME}
+  whatsapp-number: ${WA_PHONE_NUMBER:15551370098}
+
+product:
+  image:
+    upload-dir: ./product-images # Configurable path for product image uploads

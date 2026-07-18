@@ -5,32 +5,131 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Place Your Order</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <style>
+        /* Aspect ratio container for portrait images */
+        .portrait-aspect-ratio {
+            position: relative;
+            width: 100%;
+            padding-top: 133.33%; /* 4:3 aspect ratio (height / width * 100%) */
+            overflow: hidden;
+        }
+        .portrait-aspect-ratio img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cover the area, cropping if necessary */
+        }
+        .product-card-body {
+            display: flex;
+            flex-direction: column;
+        }
+        .product-details {
+            flex-grow: 1;
+        }
+        .product-variant-selection {
+            margin-top: 1rem;
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+        }
+        .variant-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .variant-item:last-child {
+            margin-bottom: 0;
+        }
+        /* Custom width for quantity input group */
+        .quantity-input-group {
+            width: 120px; /* Adjust as needed */
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container pb-4"> <!-- Added pb-4 for padding below -->
         <h2 class="my-4">Place Your Order</h2>
 
         <form th:action="@{/order}" th:object="${orderForm}" method="post">
             <input type="hidden" th:field="*{token}" />
-            <input type="hidden" th:field="*{orderId}" /> <!-- Added hidden orderId field -->
+            <input type="hidden" th:field="*{orderId}" />
 
             <div class="mb-3">
                 <label for="customerName" class="form-label">Your Name</label>
                 <input type="text" id="customerName" th:field="*{customerName}" class="form-control" placeholder="Enter your name" required />
             </div>
 
-            <div class="card mb-3" th:each="product : ${products}">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="productIds" th:value="${product.id}" th:id="${'product-' + product.id}"
-                               th:checked="${#lists.contains(orderForm.productIds, product.id)}" /> <!-- Pre-select checkbox -->
-                        <label class="form-check-label" th:for="${'product-' + product.id}">
-                            <span th:text="${product.name}">Product name</span>
-                            — ₹<span th:text="${product.price}">0</span>
-                        </label>
+            <!-- Category Dropdown -->
+            <div class="mb-4">
+                <label for="categorySelect" class="form-label">Select Category</label>
+                <select id="categorySelect" class="form-select">
+                    <option value="">All Categories</option>
+                    <option th:each="cat : ${categories}"
+                            th:value="${cat}"
+                            th:text="${cat}"
+                            th:selected="${cat == selectedCategory}">Category Name</option>
+                </select>
+            </div>
+
+            <div id="productCardsContainer">
+                <div class="card mb-4 product-card" th:each="product, iterStat : ${products}" th:data-category="${product.category}">
+                    <div class="product-card-body p-3">
+                        <!-- Product Image Carousel -->
+                        <div th:if="${!#lists.isEmpty(product.imageFilenames)}" th:id="${'carouselProduct' + product.id}" class="carousel slide product-image-carousel mb-3" data-bs-ride="carousel">
+                            <div class="carousel-inner">
+                                <div th:each="imageFilename, imageStat : ${product.imageFilenames}"
+                                     th:classappend="${imageStat.index == 0} ? 'active'" class="carousel-item">
+                                    <div class="portrait-aspect-ratio">
+                                        <img th:src="@{/admin/products/images/{filename}(filename=${imageFilename})}" class="d-block" alt="Product Image">
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="carousel-control-prev" type="button" th:data-bs-target="${'#carouselProduct' + product.id}" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Previous</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" th:data-bs-target="${'#carouselProduct' + product.id}" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Next</span>
+                            </button>
+                        </div>
+                        <div th:unless="${!#lists.isEmpty(product.imageFilenames)}" class="text-muted text-center mb-3">No image available</div>
+
+                        <!-- Product Details -->
+                        <div class="product-details">
+                            <h5 class="card-title" th:text="${product.name}">Product Name</h5>
+                            <p class="card-text text-muted" th:text="${product.description}">Product Description</p>
+                        </div>
+
+                        <!-- Product Variant Selection -->
+                        <div class="product-variant-selection">
+                            <p class="mb-2">Choose your options:</p>
+                            <div class="variant-item" th:each="variant : ${product.variants}">
+                                <div class="form-check">
+                                    <input class="form-check-input variant-checkbox" type="checkbox"
+                                           th:name="productVariantIds" th:value="${variant.id}"
+                                           th:id="${'variant-' + variant.id}"
+                                           th:checked="${#lists.contains(orderForm.productVariantIds, variant.id)}" />
+                                    <label class="form-check-label" th:for="${'variant-' + variant.id}">
+                                        <span th:text="${variant.name}">Variant Name</span>
+                                        — ₹<span th:text="${variant.price}">0.00</span>
+                                    </label>
+                                </div>
+                                <!-- Quantity Input with + / - buttons -->
+                                <div class="input-group quantity-input-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm quantity-minus" th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}">-</button>
+                                    <input type="number"
+                                           th:name="${#lists.contains(orderForm.productVariantIds, variant.id) ? 'quantities' : ''}"
+                                           th:value="${#lists.contains(orderForm.productVariantIds, variant.id) ? 1 : 0}"
+                                           min="1" class="form-control text-center variant-quantity"
+                                           th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}" />
+                                    <button type="button" class="btn btn-outline-secondary btn-sm quantity-plus" th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}">+</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <!-- Quantity will default to 1; user can adjust if editing -->
-                    <input type="number" name="quantities" value="1" min="1" class="form-control w-auto" style="max-width: 80px;" />
                 </div>
             </div>
 
@@ -39,5 +138,84 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        document.addEventListener('DOMContentLoaded', function() {
+            // Function to update quantity input state
+            function updateQuantityInputState(checkbox) {
+                const variantItem = checkbox.closest('.variant-item');
+                const quantityInput = variantItem.querySelector('.variant-quantity');
+                const minusButton = variantItem.querySelector('.quantity-minus');
+                const plusButton = variantItem.querySelector('.quantity-plus');
+
+                if (checkbox.checked) {
+                    quantityInput.removeAttribute('disabled');
+                    minusButton.removeAttribute('disabled');
+                    plusButton.removeAttribute('disabled');
+                    quantityInput.value = 1;
+                    quantityInput.setAttribute('name', 'quantities');
+                } else {
+                    quantityInput.setAttribute('disabled', 'disabled');
+                    minusButton.setAttribute('disabled', 'disabled');
+                    plusButton.setAttribute('disabled', 'disabled');
+                    quantityInput.value = 0;
+                    quantityInput.removeAttribute('name');
+                }
+            }
+
+            // Variant checkbox logic
+            document.querySelectorAll('.variant-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    updateQuantityInputState(this);
+                });
+            });
+
+            // Initialize quantity inputs based on checked state on page load
+            document.querySelectorAll('.variant-checkbox').forEach(checkbox => {
+                updateQuantityInputState(checkbox);
+            });
+
+            // Quantity +/- buttons logic
+            document.querySelectorAll('.quantity-minus').forEach(button => {
+                button.addEventListener('click', function() {
+                    const quantityInput = this.closest('.input-group').querySelector('.variant-quantity');
+                    let currentValue = parseInt(quantityInput.value);
+                    if (currentValue > 1) {
+                        quantityInput.value = currentValue - 1;
+                    }
+                });
+            });
+
+            document.querySelectorAll('.quantity-plus').forEach(button => {
+                button.addEventListener('click', function() {
+                    const quantityInput = this.closest('.input-group').querySelector('.variant-quantity');
+                    let currentValue = parseInt(quantityInput.value);
+                    quantityInput.value = currentValue + 1;
+                });
+            });
+
+
+            // Category filtering logic
+            const categorySelect = document.getElementById('categorySelect');
+            const productCards = document.querySelectorAll('.product-card');
+
+            categorySelect.addEventListener('change', function() {
+                const selectedCategory = this.value;
+
+                productCards.forEach(card => {
+                    const productCategory = card.getAttribute('data-category');
+                    if (selectedCategory === '' || productCategory === selectedCategory) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+
+            // Initial filter on page load
+            categorySelect.dispatchEvent(new Event('change'));
+        });
+        /*]]>*/
+    </script>
 </body>
 </html>

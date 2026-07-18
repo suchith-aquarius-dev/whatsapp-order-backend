@@ -3,10 +3,14 @@ package com.example.waorder.controller;
 import com.example.waorder.config.WhatsAppProperties;
 import com.example.waorder.dto.OrderForm;
 import com.example.waorder.dto.Product;
+import com.example.waorder.dto.ProductVariantDto;
 import com.example.waorder.model.Order;
 import com.example.waorder.model.OrderItem;
+import com.example.waorder.model.ProductEntity;
+import com.example.waorder.model.ProductVariant;
 import com.example.waorder.repository.OrderRepository;
 import com.example.waorder.service.LinkTokenService;
+import com.example.waorder.service.ProductService;
 import com.example.waorder.service.WhatsAppApiService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +20,6 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,26 +30,22 @@ import java.util.stream.Collectors;
 @RequestMapping("/order")
 public class OrderController {
 
-    // Hardcoded catalog for demo purposes - swap for a real ProductRepository/service
-    private static final List<Product> CATALOG = List.of(
-            new Product("p1", "Margherita Pizza", new BigDecimal("299")),
-            new Product("p2", "Veg Burger", new BigDecimal("149")),
-            new Product("p3", "Cold Coffee", new BigDecimal("99"))
-    );
-
     private final LinkTokenService linkTokenService;
     private final OrderRepository orderRepository;
     private final WhatsAppApiService whatsAppApiService;
     private final WhatsAppProperties whatsAppProperties;
+    private final ProductService productService;
 
     public OrderController(LinkTokenService linkTokenService,
                             OrderRepository orderRepository,
                             WhatsAppApiService whatsAppApiService,
-                            WhatsAppProperties whatsAppProperties) {
+                            WhatsAppProperties whatsAppProperties,
+                            ProductService productService) {
         this.linkTokenService = linkTokenService;
         this.orderRepository = orderRepository;
         this.whatsAppApiService = whatsAppApiService;
         this.whatsAppProperties = whatsAppProperties;
+        this.productService = productService;
     }
 
     /**
@@ -55,20 +54,60 @@ public class OrderController {
      */
     @GetMapping
     public String showForm(@RequestParam String token,
-                           @RequestParam(required = false) Long orderId, // Added orderId
+                           @RequestParam(required = false) Long orderId,
+                           @RequestParam(required = false) String category, // Added category parameter
                            Model model) {
         String waId;
         try {
             waId = linkTokenService.validateAndExtractWaId(token);
         } catch (Exception e) {
             log.error("Error validating token: {}", e.getMessage());
+            // NEW LOGIC: If token is expired but orderId is present, try to show order details
+            if (orderId != null) {
+                Optional<Order> existingOrderOpt = orderRepository.findById(orderId);
+                if (existingOrderOpt.isPresent()) {
+                    Order existingOrder = existingOrderOpt.get();
+                    model.addAttribute("order", existingOrder);
+                    model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber());
+                    model.addAttribute("statusMessage", "This order link has expired, but here are the details of your order.");
+                    return "order-status";
+                }
+            }
+            // Original error handling if no orderId or order not found
             model.addAttribute("error", "This order link is invalid or has expired. Please message us again on WhatsApp.");
             return "link-error";
         }
 
         OrderForm form = new OrderForm();
         form.setToken(token);
-        form.setOrderId(orderId); // Set orderId in form
+        form.setOrderId(orderId);
+
+        // Fetch all categories for the dropdown
+        List<String> categories = productService.getAllCategories();
+        model.addAttribute("categories", categories);
+        model.addAttribute("selectedCategory", category); // Pass selected category back to view
+
+        // Fetch products based on selected category or all if no category is selected
+        List<ProductEntity> productEntities;
+        if (category != null && !category.isEmpty()) {
+            productEntities = productService.getProductsByCategory(category);
+        } else {
+            productEntities = productService.getAllProducts();
+        }
+
+        List<Product> catalog = productEntities.stream()
+                                .map(p -> new Product(
+                                        p.getId().toString(),
+                                        p.getName(),
+                                        p.getDescription(),
+                                        p.getCategory(),
+                                        p.getVariants().stream()
+                                                .map(v -> new ProductVariantDto(v.getId(), v.getName(), v.getQuantityValue(), v.getPrice()))
+                                                .collect(Collectors.toList()),
+                                        p.getImageFilenames()
+                                ))
+                                .collect(Collectors.toList());
+
 
         if (orderId != null) {
             Optional<Order> existingOrderOpt = orderRepository.findById(orderId);
@@ -78,7 +117,7 @@ public class OrderController {
                 // Check if the order is already finalized or payment link sent
                 if (existingOrder.getStatus() == Order.OrderStatus.PAID ||
                     existingOrder.getStatus() == Order.OrderStatus.CANCELLED ||
-                    existingOrder.getStatus() == Order.OrderStatus.PAYMENT_LINK_SENT) { // Added PAYMENT_LINK_SENT
+                    existingOrder.getStatus() == Order.OrderStatus.PAYMENT_LINK_SENT) {
                     model.addAttribute("order", existingOrder);
                     model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber());
 
@@ -91,26 +130,33 @@ public class OrderController {
                         statusMessage = "Your order has been placed, and a payment link has been sent to your WhatsApp. Please complete the payment there.";
                     }
                     model.addAttribute("statusMessage", statusMessage);
-                    return "order-status"; // New template for finalized orders
+                    return "order-status";
                 }
 
                 // Pre-fill form with existing order details
                 form.setCustomerName(existingOrder.getCustomerName());
-                form.setProductIds(existingOrder.getItems().stream().map(item -> {
-                    // Find product ID from CATALOG based on product name
-                    return CATALOG.stream()
-                            .filter(p -> p.name().equals(item.getProductName()))
-                            .map(Product::id)
-                            .findFirst()
-                            .orElse(null); // Handle case where product name might not match
-                }).filter(java.util.Objects::nonNull).collect(Collectors.toList()));
+                // Populate productVariantIds based on existing order items
+                form.setProductVariantIds(existingOrder.getItems().stream()
+                        .map(item -> {
+                            // Find the variant that matches the ordered item's name and price
+                            return productEntities.stream() // Use filtered productEntities
+                                    .flatMap(p -> p.getVariants().stream())
+                                    .filter(v -> (v.getProduct().getName() + " - " + v.getName()).equals(item.getProductName()) && v.getPrice().compareTo(item.getPrice()) == 0)
+                                    .map(ProductVariant::getId)
+                                    .findFirst()
+                                    .orElse(null);
+                        })
+                        .filter(java.util.Objects::nonNull)
+                        .collect(Collectors.toList()));
 
-                form.setQuantities(existingOrder.getItems().stream().map(OrderItem::getQuantity).collect(Collectors.toList()));
+                // Note: Quantities are not pre-filled for individual items in the current form structure.
+                // User will need to re-enter quantities for selected items.
+                // form.setQuantities(existingOrder.getItems().stream().map(OrderItem::getQuantity).collect(Collectors.toList()));
             }
         }
 
         model.addAttribute("orderForm", form);
-        model.addAttribute("products", CATALOG);
+        model.addAttribute("products", catalog); // Pass dynamic catalog to view
         return "order-form";
     }
 
@@ -133,21 +179,40 @@ public class OrderController {
             return "link-error";
         }
 
+        // Fetch products from database for validation and calculation
+        List<ProductEntity> productEntities = productService.getAllProducts();
+        Map<Long, ProductVariant> allVariants = productEntities.stream()
+                .flatMap(p -> p.getVariants().stream())
+                .collect(Collectors.toMap(ProductVariant::getId, v -> v));
+
+
         if (bindingResult.hasErrors()) {
-            model.addAttribute("products", CATALOG);
-            // If there's an orderId in the form, ensure it's passed back to the view
+            // Re-map ProductEntities to Product DTOs for the view if there are errors
+            List<Product> catalogForError = productEntities.stream()
+                    .map(p -> new Product(
+                            p.getId().toString(),
+                            p.getName(),
+                            p.getDescription(),
+                            p.getCategory(),
+                            p.getVariants().stream()
+                                    .map(v -> new ProductVariantDto(v.getId(), v.getName(), v.getQuantityValue(), v.getPrice()))
+                                    .collect(Collectors.toList()),
+                            p.getImageFilenames()
+                    ))
+                    .collect(Collectors.toList());
+            model.addAttribute("products", catalogForError);
+            // Also pass categories and selected category back on error
+            model.addAttribute("categories", productService.getAllCategories());
+            model.addAttribute("selectedCategory", null); // Or try to retain previous selection
             if (form.getOrderId() != null) {
                 model.addAttribute("orderId", form.getOrderId());
             }
             return "order-form";
         }
 
-        model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber()); // Always add for redirection
+        model.addAttribute("whatsappNumber", whatsAppProperties.getWhatsappNumber());
 
         try {
-            Map<String, Product> byId = CATALOG.stream()
-                    .collect(java.util.stream.Collectors.toMap(Product::id, p -> p));
-
             Order order;
             if (form.getOrderId() != null) {
                 // Update existing order
@@ -162,39 +227,40 @@ public class OrderController {
                 order.setCustomerName(form.getCustomerName());
             }
 
-
             BigDecimal total = BigDecimal.ZERO;
-            List<String> productIds = form.getProductIds();
+            List<Long> productVariantIds = form.getProductVariantIds();
             List<Integer> quantities = form.getQuantities();
 
-            for (int i = 0; i < productIds.size(); i++) {
-                Product product = byId.get(productIds.get(i));
-                if (product == null) continue;
+            for (int i = 0; i < productVariantIds.size(); i++) {
+                Long variantId = productVariantIds.get(i);
+                ProductVariant variant = allVariants.get(variantId); // Get variant by ID
+                if (variant == null) {
+                    log.warn("Selected product variant with ID {} not found. Skipping.", variantId);
+                    continue;
+                }
                 int qty = (quantities != null && i < quantities.size() && quantities.get(i) != null)
                         ? quantities.get(i) : 1;
 
                 OrderItem item = new OrderItem();
                 item.setOrder(order);
-                item.setProductName(product.name());
+                // Store product name + variant name for clarity
+                item.setProductName(variant.getProduct().getName() + " - " + variant.getName());
                 item.setQuantity(qty);
-                item.setPrice(product.price());
+                item.setPrice(variant.getPrice()); // Use variant's price
                 order.getItems().add(item);
 
-                total = total.add(product.price().multiply(BigDecimal.valueOf(qty)));
+                total = total.add(variant.getPrice().multiply(BigDecimal.valueOf(qty)));
             }
             order.setTotalAmount(total);
             order.setStatus(Order.OrderStatus.PAYMENT_LINK_SENT);
 
             Order saved = orderRepository.save(order);
 
-            // Send the user back to WhatsApp with a Pay Now button for this order.
-            // If it's been >24h since their last message, swap this for
-            // whatsAppApiService.sendPayNowTemplate(saved) using an approved template.
             whatsAppApiService.sendPayNowMessage(saved);
 
             model.addAttribute("isSuccess", true);
             model.addAttribute("message", "Thank you for your order confirmation! You’ll receive a payment link on your WhatsApp. Please use this link to finalise your payment. If for any reason, you do not receive the link within 2 mins, please initiate a new conversation.");
-            model.addAttribute("order", saved); // Pass order details for display if needed
+            model.addAttribute("order", saved);
 
         } catch (Exception e) {
             log.error("Failed to persist order or send WhatsApp message: {}", e.getMessage(), e);
