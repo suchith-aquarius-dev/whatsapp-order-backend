@@ -115,6 +115,11 @@ public class ProductController {
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))
                         .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                        // Filenames are random UUIDs and never reused for different
+                        // content, so it's safe for browsers to cache these
+                        // indefinitely - avoids re-downloading the same product
+                        // photo on every visit to the order form.
+                        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
                         .body(resource);
             } else {
                 log.warn("Could not read file: {}", filename);

@@ -5,6 +5,7 @@ import com.example.waorder.model.ProductVariant;
 import com.example.waorder.repository.ProductRepository;
 import com.example.waorder.repository.ProductVariantRepository;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,18 +55,31 @@ public class ProductService {
             finalImageFilenames.addAll(existingImageFilenames);
         }
 
-        // 2. Handle new image file uploads
+        // 2. Handle new image file uploads - resized & compressed before saving,
+        // instead of storing whatever resolution/size the admin's phone camera
+        // produced. This is the main lever for faster page loads: a raw phone
+        // photo can be 3-5MB; the version we actually need to display in a
+        // small product card is a fraction of that.
         if (newImageFiles != null && !newImageFiles.isEmpty()) {
             for (MultipartFile file : newImageFiles) {
                 if (!file.isEmpty()) {
-                    String originalFilename = file.getOriginalFilename();
-                    String fileExtension = "";
-                    if (originalFilename != null && originalFilename.contains(".")) {
-                        fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-                    }
-                    String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
+                    // Always save as .jpg: consistent, well-compressed output
+                    // regardless of the source format (heic/png/jpg from
+                    // different phones). Fine for product photos; only a
+                    // concern if you need transparent PNGs, which product
+                    // photography usually doesn't.
+                    String uniqueFilename = UUID.randomUUID().toString() + ".jpg";
                     Path filePath = uploadPath.resolve(uniqueFilename);
-                    Files.copy(file.getInputStream(), filePath);
+
+                    Thumbnails.of(file.getInputStream())
+                            // Cap the longest side at 900px - plenty sharp for
+                            // a phone-screen product card, a fraction of the
+                            // size of an original camera photo.
+                            .size(900, 900)
+                            .outputQuality(0.72)
+                            .outputFormat("jpg")
+                            .toFile(filePath.toFile());
+
                     finalImageFilenames.add(uniqueFilename);
                 }
             }

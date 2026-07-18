@@ -3,14 +3,20 @@
 <head>
     <th:block th:replace="~{fragments/layout :: head(pageTitle='Place Your Order')}"></th:block>
     <style>
-        /* Aspect ratio container for portrait images */
-        .portrait-aspect-ratio {
+        /* Compact landscape image strip instead of a tall portrait crop -
+           previously 133% padding-top made each product image almost as
+           tall as the phone screen. This caps it to a short preview strip
+           and stops it growing past ~190px even on wide screens. */
+        .product-image-frame {
             position: relative;
             width: 100%;
-            padding-top: 133.33%; /* 4:3 aspect ratio (height / width * 100%) */
+            padding-top: 82%; /* short landscape strip */
+            max-height: 400px;
             overflow: hidden;
+            background-color: var(--wa-bg, #f0f2f5);
+            border-radius: var(--wa-radius, 10px) var(--wa-radius, 10px) 0 0;
         }
-        .portrait-aspect-ratio img {
+        .product-image-frame img {
             position: absolute;
             top: 0;
             left: 0;
@@ -77,8 +83,10 @@
                             <div class="carousel-inner">
                                 <div th:each="imageFilename, imageStat : ${product.imageFilenames}"
                                      th:classappend="${imageStat.index == 0} ? 'active'" class="carousel-item">
-                                    <div class="portrait-aspect-ratio">
-                                        <img th:src="@{/admin/products/images/{filename}(filename=${imageFilename})}" class="d-block" alt="Product Image">
+                                    <div class="product-image-frame">
+                                        <img th:src="@{/admin/products/images/{filename}(filename=${imageFilename})}"
+                                             class="d-block" alt="Product Image"
+                                             loading="lazy" decoding="async">
                                     </div>
                                 </div>
                             </div>
