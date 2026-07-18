@@ -3,74 +3,166 @@
 <head>
     <th:block th:replace="~{fragments/layout :: head(pageTitle='Products')}"></th:block>
     <style>
-        .product-img {
-            max-width: 100px;
-            max-height: 100px;
+        /* Mirrors the order-form product image treatment, just a shorter
+           strip since this is an admin management thumbnail rather than
+           the primary customer-facing photo. Same rounded-top + cover-fit
+           language as the order form for visual consistency. */
+        .admin-product-image-frame {
+            position: relative;
+            width: 100%;
+            padding-top: 82%;
+            max-height: 400px;
+            overflow: hidden;
+            background-color: var(--wa-bg, #f0f2f5);
+            border-radius: var(--wa-radius, 10px) var(--wa-radius, 10px) 0 0;
+        }
+        .admin-product-image-frame img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
+        }
+        .admin-product-image-frame.no-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-admin-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .product-admin-card .card-body {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        .product-admin-card .product-desc {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-size: 0.88rem;
+        }
+        .product-admin-card .variant-chip {
+            display: inline-flex;
+            justify-content: space-between;
+            gap: 8px;
+            background-color: var(--wa-bg, #f0f2f5);
+            border-radius: 999px;
+            padding: 3px 12px;
+            font-size: 0.78rem;
+            margin: 0 6px 6px 0;
+            white-space: nowrap;
+        }
+        .product-admin-card .card-actions {
+            margin-top: auto;
+            padding-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+        .product-admin-card .card-actions form {
+            margin: 0;
+        }
+        .category-badge {
+            background-color: var(--wa-teal, #128C7E);
+            color: #fff;
+            font-weight: 500;
+            font-size: 0.72rem;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+        .product-id-badge {
+            color: var(--wa-text-muted, #667781);
+            font-size: 0.78rem;
         }
     </style>
 </head>
 <body>
-    <div th:replace="~{fragments/layout :: topbar(title='Products', subtitle='Manage your menu', initials='AD', backUrl=null)}"></div>
-    <div class="wa-container wa-wide">
-        <div class="d-flex justify-content-between align-items-center my-3">
-            <h2 class="h4 mb-0">Product List</h2>
-        </div>
-
-        <div th:if="${message}" class="alert alert-success" role="alert">
-            <span th:text="${message}"></span>
-        </div>
-        <div th:if="${error}" class="alert alert-danger" role="alert">
-            <span th:text="${error}"></span>
-        </div>
-
-        <a th:href="@{/admin/products/add}" class="btn btn-primary mb-3">Add New Product</a>
-
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th>Category</th>
-                    <th>Variants</th>
-                    <th>Images</th>
-                    <th>Actions</th> <!-- New column for actions -->
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="product : ${products}">
-                    <td th:text="${product.id}">1</td>
-                    <td th:text="${product.name}">Product Name</td>
-                    <td th:text="${product.description}">Description</td>
-                    <td th:text="${product.category}">Category</td>
-                    <td>
-                        <ul class="list-unstyled mb-0">
-                            <li th:each="variant : ${product.variants}">
-                                <span th:text="${variant.name}">Variant Name</span>: ₹<span th:text="${variant.price}">0.00</span> (<span th:text="${variant.quantityValue}">1</span> item<span th:if="${variant.quantityValue > 1}">s</span>)
-                            </li>
-                        </ul>
-                        <div th:if="${#lists.isEmpty(product.variants)}">No variants defined</div>
-                    </td>
-                    <td>
-                        <div th:if="${#lists.isEmpty(product.imageFilenames)}">No Images</div>
-                        <div th:unless="${#lists.isEmpty(product.imageFilenames)}">
-                            <img th:each="imageFilename : ${product.imageFilenames}"
-                                 th:src="@{/admin/products/images/{filename}(filename=${imageFilename})}"
-                                 class="img-thumbnail product-img me-2" alt="Product Image" />
-                        </div>
-                    </td>
-                    <td>
-                        <a th:href="@{/admin/products/edit/{id}(id=${product.id})}" class="btn btn-sm btn-warning me-2">Edit</a>
-                        <form th:action="@{/admin/products/delete/{id}(id=${product.id})}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this product?');">
-                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+<div th:replace="~{fragments/layout :: topbar(title='Products', subtitle='Manage your menu', initials='AD', backUrl=null)}"></div>
+<div class="wa-container wa-wide">
+    <div class="d-flex justify-content-between align-items-center my-3">
+        <h2 class="h4 mb-0">Product List</h2>
     </div>
 
-    <th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+    <div th:if="${message}" class="alert alert-success" role="alert">
+        <span th:text="${message}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-danger" role="alert">
+        <span th:text="${error}"></span>
+    </div>
+
+    <a th:href="@{/admin/products/add}" class="btn btn-primary mb-4">+ Add New Product</a>
+
+    <div th:if="${#lists.isEmpty(products)}" class="wa-empty-state">
+        No products yet. Add your first one to get started.
+    </div>
+
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+        <div class="col" th:each="product : ${products}">
+            <div class="card product-admin-card">
+
+                <div th:if="${!#lists.isEmpty(product.imageFilenames)}"
+                     th:id="${'adminCarousel' + product.id}"
+                     class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        <div th:each="imageFilename, imgStat : ${product.imageFilenames}"
+                             th:classappend="${imgStat.index == 0} ? 'active'" class="carousel-item">
+                            <div class="admin-product-image-frame">
+                                <img th:src="@{/admin/products/images/{filename}(filename=${imageFilename})}"
+                                     class="d-block" alt="Product Image"
+                                     loading="lazy" decoding="async">
+                            </div>
+                        </div>
+                    </div>
+                    <button th:if="${product.imageFilenames.size() > 1}" class="carousel-control-prev" type="button"
+                            th:data-bs-target="${'#adminCarousel' + product.id}" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button th:if="${product.imageFilenames.size() > 1}" class="carousel-control-next" type="button"
+                            th:data-bs-target="${'#adminCarousel' + product.id}" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
+                </div>
+                <div th:unless="${!#lists.isEmpty(product.imageFilenames)}" class="admin-product-image-frame no-image">
+                    <span class="wa-muted small">No image available</span>
+                </div>
+
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <h5 class="mb-0" th:text="${product.name}">Product Name</h5>
+                        <span class="product-id-badge">#<span th:text="${product.id}">1</span></span>
+                    </div>
+                    <span class="category-badge mb-2 d-inline-block" th:text="${product.category}">Category</span>
+                    <p class="wa-muted product-desc mt-2" th:text="${product.description}">Product Description</p>
+
+                    <div class="mt-2">
+                        <div th:if="${#lists.isEmpty(product.variants)}" class="wa-muted small">No variants defined</div>
+                        <span class="variant-chip" th:each="variant : ${product.variants}">
+                                <span th:text="${variant.name}">Variant</span>
+                                <strong>₹<span th:text="${variant.price}">0.00</span></strong>
+                            </span>
+                    </div>
+
+                    <div class="card-actions">
+                        <a th:href="@{/admin/products/edit/{id}(id=${product.id})}" class="btn btn-sm btn-warning flex-grow-1">Edit</a>
+                        <form th:action="@{/admin/products/delete/{id}(id=${product.id})}" method="post"
+                              class="flex-grow-1"
+                              onsubmit="return confirm('Are you sure you want to delete this product?');">
+                            <button type="submit" class="btn btn-sm btn-danger w-100">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
 </body>
 </html>

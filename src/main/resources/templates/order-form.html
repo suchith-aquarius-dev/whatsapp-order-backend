@@ -3,10 +3,7 @@
 <head>
     <th:block th:replace="~{fragments/layout :: head(pageTitle='Place Your Order')}"></th:block>
     <style>
-        /* Compact landscape image strip instead of a tall portrait crop -
-           previously 133% padding-top made each product image almost as
-           tall as the phone screen. This caps it to a short preview strip
-           and stops it growing past ~190px even on wide screens. */
+        /* Image frame - kept exactly as configured (82% / 400px cap) */
         .product-image-frame {
             position: relative;
             width: 100%;
@@ -22,204 +19,349 @@
             left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Cover the area, cropping if necessary */
+            object-fit: cover;
+        }
+
+        .product-card {
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+            border: none;
         }
         .product-card-body {
             display: flex;
             flex-direction: column;
+            padding: 1.25rem;
         }
         .product-details {
             flex-grow: 1;
         }
-        .product-variant-selection {
-            margin-top: 1rem;
-            border-top: 1px solid #eee;
-            padding-top: 1rem;
+        .product-details .card-title {
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 0.4rem;
         }
+        .product-details .card-text {
+            font-size: 0.92rem;
+            line-height: 1.55;
+            color: var(--wa-text-muted, #667781);
+        }
+
+        /* Section label above the variant list, e.g. "Choose your options" */
+        .variant-section-label {
+            text-transform: uppercase;
+            font-size: 0.74rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: var(--wa-text-muted, #667781);
+            margin-bottom: 0.75rem;
+        }
+
+        .product-variant-selection {
+            margin-top: 1.1rem;
+            border-top: 1px solid var(--wa-border, #E9EDEF);
+            padding-top: 1.1rem;
+        }
+
+        /* Each variant row - lighter touch than before: no heavy border box,
+           tighter padding, a soft highlight only once selected. */
         .variant-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.5rem;
+            gap: 12px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            margin-bottom: 4px;
+            transition: background-color 0.15s ease;
         }
         .variant-item:last-child {
             margin-bottom: 0;
         }
-        /* Custom width for quantity input group */
-        .quantity-input-group {
-            width: 120px; /* Adjust as needed */
+        .variant-item:hover {
+            background-color: var(--wa-bg, #F0F2F5);
+        }
+        /* Highlight the row green (WhatsApp-bubble tone) once its checkbox
+           is checked - gives clear "this is in your order" feedback. */
+        .variant-item:has(.variant-checkbox:checked) {
+            background-color: var(--wa-bubble, #DCF8C6);
+        }
+
+        .variant-item .form-check {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+            flex: 1;
+            min-width: 0;
+        }
+        .variant-item .form-check-input {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 21px;
+            height: 21px;
+            margin: 0;
+            border: 2px solid var(--wa-border, #D1D7DB);
+            border-radius: 6px;
+            background-color: #fff;
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .variant-item .form-check-input:checked {
+            background-color: var(--wa-green, #25D366);
+            border-color: var(--wa-green, #25D366);
+        }
+        /* Custom checkmark drawn with a rotated border - no icon font needed */
+        .variant-item .form-check-input:checked::after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 2px;
+            width: 5px;
+            height: 10px;
+            border: solid #fff;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        .variant-item .form-check-label {
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        .variant-item .form-check-label strong {
+            font-weight: 600;
+        }
+
+        /* Quantity stepper - separate circular +/- buttons with a soft
+           background instead of a joined boxy pill. Deliberately NOT using
+           Bootstrap's .input-group class - it forces width:100%, which was
+           stretching this control across the whole row. */
+        .qty-stepper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: auto;
+            flex: 0 0 auto;
+        }
+        .qty-stepper .quantity-minus,
+        .qty-stepper .quantity-plus {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 50%;
+            background-color: var(--wa-bg, #F0F2F5);
+            color: var(--wa-teal, #128C7E);
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .qty-stepper .quantity-minus:hover:not(:disabled),
+        .qty-stepper .quantity-plus:hover:not(:disabled) {
+            background-color: #dde4e6;
+        }
+        .qty-stepper .quantity-minus:disabled,
+        .qty-stepper .quantity-plus:disabled {
+            color: #c7ccce;
+            cursor: not-allowed;
+        }
+        .qty-stepper .variant-quantity {
+            width: 22px;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-weight: 700;
+            padding: 0;
+            box-shadow: none;
+        }
+        .qty-stepper .variant-quantity:focus {
+            box-shadow: none;
+            outline: none;
+        }
+        /* Hide native number spinner arrows */
+        .qty-stepper .variant-quantity::-webkit-outer-spin-button,
+        .qty-stepper .variant-quantity::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .qty-stepper .variant-quantity {
+            -moz-appearance: textfield;
         }
     </style>
 </head>
 <body>
-    <div th:replace="~{fragments/layout :: topbar(title='Place Your Order', subtitle='Reply here to confirm your items', initials='PS', backUrl=null)}"></div>
-    <div class="wa-container">
-        <form th:action="@{/order}" th:object="${orderForm}" method="post">
-            <input type="hidden" th:field="*{token}" />
-            <input type="hidden" th:field="*{orderId}" />
+<div th:replace="~{fragments/layout :: topbar(title='Place Your Order', subtitle='Reply here to confirm your items', initials='PS', backUrl=null)}"></div>
+<div class="wa-container">
+    <form th:action="@{/order}" th:object="${orderForm}" method="post">
+        <input type="hidden" th:field="*{token}" />
+        <input type="hidden" th:field="*{orderId}" />
 
-            <div class="mb-3">
-                <label for="customerName" class="form-label">Your Name</label>
-                <input type="text" id="customerName" th:field="*{customerName}" class="form-control" placeholder="Enter your name" required />
-            </div>
+        <div class="mb-3">
+            <label for="customerName" class="form-label">Your Name</label>
+            <input type="text" id="customerName" th:field="*{customerName}" class="form-control" placeholder="Enter your name" required />
+        </div>
 
-            <!-- Category Dropdown -->
-            <div class="mb-4">
-                <label for="categorySelect" class="form-label">Select Category</label>
-                <select id="categorySelect" class="form-select">
-                    <option value="">All Categories</option>
-                    <option th:each="cat : ${categories}"
-                            th:value="${cat}"
-                            th:text="${cat}"
-                            th:selected="${cat == selectedCategory}">Category Name</option>
-                </select>
-            </div>
+        <!-- Category Dropdown -->
+        <div class="mb-4">
+            <label for="categorySelect" class="form-label">Select Category</label>
+            <select id="categorySelect" class="form-select">
+                <option value="">All Categories</option>
+                <option th:each="cat : ${categories}"
+                        th:value="${cat}"
+                        th:text="${cat}"
+                        th:selected="${cat == selectedCategory}">Category Name</option>
+            </select>
+        </div>
 
-            <div id="productCardsContainer">
-                <div class="card mb-4 product-card" th:each="product, iterStat : ${products}" th:data-category="${product.category}">
-                    <div class="product-card-body p-3">
-                        <!-- Product Image Carousel -->
-                        <div th:if="${!#lists.isEmpty(product.imageFilenames)}" th:id="${'carouselProduct' + product.id}" class="carousel slide product-image-carousel mb-3" data-bs-ride="carousel">
-                            <div class="carousel-inner">
-                                <div th:each="imageFilename, imageStat : ${product.imageFilenames}"
-                                     th:classappend="${imageStat.index == 0} ? 'active'" class="carousel-item">
-                                    <div class="product-image-frame">
-                                        <img th:src="@{/admin/products/images/{filename}(filename=${imageFilename})}"
-                                             class="d-block" alt="Product Image"
-                                             loading="lazy" decoding="async">
-                                    </div>
+        <div id="productCardsContainer">
+            <div class="card mb-4 product-card" th:each="product, iterStat : ${products}" th:data-category="${product.category}">
+                <div class="product-card-body">
+                    <!-- Product Image Carousel -->
+                    <div th:if="${!#lists.isEmpty(product.imageFilenames)}" th:id="${'carouselProduct' + product.id}" class="carousel slide product-image-carousel mb-3" data-bs-ride="carousel">
+                        <div class="carousel-inner">
+                            <div th:each="imageFilename, imageStat : ${product.imageFilenames}"
+                                 th:classappend="${imageStat.index == 0} ? 'active'" class="carousel-item">
+                                <div class="product-image-frame">
+                                    <img th:src="@{/admin/products/images/{filename}(filename=${imageFilename})}"
+                                         class="d-block" alt="Product Image"
+                                         loading="lazy" decoding="async">
                                 </div>
                             </div>
-                            <button class="carousel-control-prev" type="button" th:data-bs-target="${'#carouselProduct' + product.id}" data-bs-slide="prev">
-                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Previous</span>
-                            </button>
-                            <button class="carousel-control-next" type="button" th:data-bs-target="${'#carouselProduct' + product.id}" data-bs-slide="next">
-                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Next</span>
-                            </button>
                         </div>
-                        <div th:unless="${!#lists.isEmpty(product.imageFilenames)}" class="text-muted text-center mb-3">No image available</div>
+                        <button class="carousel-control-prev" type="button" th:data-bs-target="${'#carouselProduct' + product.id}" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Previous</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" th:data-bs-target="${'#carouselProduct' + product.id}" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Next</span>
+                        </button>
+                    </div>
+                    <div th:unless="${!#lists.isEmpty(product.imageFilenames)}" class="text-muted text-center mb-3">No image available</div>
 
-                        <!-- Product Details -->
-                        <div class="product-details">
-                            <h5 class="card-title" th:text="${product.name}">Product Name</h5>
-                            <p class="card-text text-muted" th:text="${product.description}">Product Description</p>
-                        </div>
+                    <!-- Product Details -->
+                    <div class="product-details">
+                        <h5 class="card-title" th:text="${product.name}">Product Name</h5>
+                        <p class="card-text" th:text="${product.description}">Product Description</p>
+                    </div>
 
-                        <!-- Product Variant Selection -->
-                        <div class="product-variant-selection">
-                            <p class="mb-2">Choose your options:</p>
-                            <div class="variant-item" th:each="variant : ${product.variants}">
-                                <div class="form-check">
-                                    <input class="form-check-input variant-checkbox" type="checkbox"
-                                           th:name="productVariantIds" th:value="${variant.id}"
-                                           th:id="${'variant-' + variant.id}"
-                                           th:checked="${#lists.contains(orderForm.productVariantIds, variant.id)}" />
-                                    <label class="form-check-label" th:for="${'variant-' + variant.id}">
-                                        <span th:text="${variant.name}">Variant Name</span>
-                                        — ₹<span th:text="${variant.price}">0.00</span>
-                                    </label>
-                                </div>
-                                <!-- Quantity Input with + / - buttons -->
-                                <div class="input-group quantity-input-group">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm quantity-minus" th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}">-</button>
-                                    <input type="number"
-                                           th:name="${#lists.contains(orderForm.productVariantIds, variant.id) ? 'quantities' : ''}"
-                                           th:value="${#lists.contains(orderForm.productVariantIds, variant.id) ? 1 : 0}"
-                                           min="1" class="form-control text-center variant-quantity"
-                                           th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}" />
-                                    <button type="button" class="btn btn-outline-secondary btn-sm quantity-plus" th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}">+</button>
-                                </div>
+                    <!-- Product Variant Selection -->
+                    <div class="product-variant-selection">
+                        <p class="variant-section-label">Choose your options</p>
+                        <div class="variant-item" th:each="variant : ${product.variants}">
+                            <div class="form-check">
+                                <input class="form-check-input variant-checkbox" type="checkbox"
+                                       th:name="productVariantIds" th:value="${variant.id}"
+                                       th:id="${'variant-' + variant.id}"
+                                       th:checked="${#lists.contains(orderForm.productVariantIds, variant.id)}" />
+                                <label class="form-check-label" th:for="${'variant-' + variant.id}">
+                                    <span th:text="${variant.name}">Variant Name</span>
+                                    — <strong>₹<span th:text="${variant.price}">0.00</span></strong>
+                                </label>
+                            </div>
+                            <!-- Quantity Stepper -->
+                            <div class="qty-stepper">
+                                <button type="button" class="quantity-minus" th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}">&#8722;</button>
+                                <input type="number"
+                                       th:name="${#lists.contains(orderForm.productVariantIds, variant.id) ? 'quantities' : ''}"
+                                       th:value="${#lists.contains(orderForm.productVariantIds, variant.id) ? 1 : 0}"
+                                       min="1" class="variant-quantity"
+                                       th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}" />
+                                <button type="button" class="quantity-plus" th:disabled="${!#lists.contains(orderForm.productVariantIds, variant.id)}">+</button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <button type="submit" class="btn btn-success w-100 py-3 mt-4">Submit Order</button>
-        </form>
-    </div>
+        <button type="submit" class="btn btn-success w-100 py-3 mt-4">Submit Order</button>
+    </form>
+</div>
 
-    <th:block th:replace="~{fragments/layout :: scripts}"></th:block>
-    <script th:inline="javascript">
-        /*<![CDATA[*/
-        document.addEventListener('DOMContentLoaded', function() {
-            // Function to update quantity input state
-            function updateQuantityInputState(checkbox) {
-                const variantItem = checkbox.closest('.variant-item');
-                const quantityInput = variantItem.querySelector('.variant-quantity');
-                const minusButton = variantItem.querySelector('.quantity-minus');
-                const plusButton = variantItem.querySelector('.quantity-plus');
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to update quantity input state
+        function updateQuantityInputState(checkbox) {
+            const variantItem = checkbox.closest('.variant-item');
+            const quantityInput = variantItem.querySelector('.variant-quantity');
+            const minusButton = variantItem.querySelector('.quantity-minus');
+            const plusButton = variantItem.querySelector('.quantity-plus');
 
-                if (checkbox.checked) {
-                    quantityInput.removeAttribute('disabled');
-                    minusButton.removeAttribute('disabled');
-                    plusButton.removeAttribute('disabled');
-                    quantityInput.value = 1;
-                    quantityInput.setAttribute('name', 'quantities');
-                } else {
-                    quantityInput.setAttribute('disabled', 'disabled');
-                    minusButton.setAttribute('disabled', 'disabled');
-                    plusButton.setAttribute('disabled', 'disabled');
-                    quantityInput.value = 0;
-                    quantityInput.removeAttribute('name');
-                }
+            if (checkbox.checked) {
+                quantityInput.removeAttribute('disabled');
+                minusButton.removeAttribute('disabled');
+                plusButton.removeAttribute('disabled');
+                quantityInput.value = 1;
+                quantityInput.setAttribute('name', 'quantities');
+            } else {
+                quantityInput.setAttribute('disabled', 'disabled');
+                minusButton.setAttribute('disabled', 'disabled');
+                plusButton.setAttribute('disabled', 'disabled');
+                quantityInput.value = 0;
+                quantityInput.removeAttribute('name');
             }
+        }
 
-            // Variant checkbox logic
-            document.querySelectorAll('.variant-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    updateQuantityInputState(this);
-                });
+        // Variant checkbox logic
+        document.querySelectorAll('.variant-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateQuantityInputState(this);
             });
-
-            // Initialize quantity inputs based on checked state on page load
-            document.querySelectorAll('.variant-checkbox').forEach(checkbox => {
-                updateQuantityInputState(checkbox);
-            });
-
-            // Quantity +/- buttons logic
-            document.querySelectorAll('.quantity-minus').forEach(button => {
-                button.addEventListener('click', function() {
-                    const quantityInput = this.closest('.input-group').querySelector('.variant-quantity');
-                    let currentValue = parseInt(quantityInput.value);
-                    if (currentValue > 1) {
-                        quantityInput.value = currentValue - 1;
-                    }
-                });
-            });
-
-            document.querySelectorAll('.quantity-plus').forEach(button => {
-                button.addEventListener('click', function() {
-                    const quantityInput = this.closest('.input-group').querySelector('.variant-quantity');
-                    let currentValue = parseInt(quantityInput.value);
-                    quantityInput.value = currentValue + 1;
-                });
-            });
-
-
-            // Category filtering logic
-            const categorySelect = document.getElementById('categorySelect');
-            const productCards = document.querySelectorAll('.product-card');
-
-            categorySelect.addEventListener('change', function() {
-                const selectedCategory = this.value;
-
-                productCards.forEach(card => {
-                    const productCategory = card.getAttribute('data-category');
-                    if (selectedCategory === '' || productCategory === selectedCategory) {
-                        card.style.display = 'block';
-                    } else {
-                        card.style.display = 'none';
-                    }
-                });
-            });
-
-            // Initial filter on page load
-            categorySelect.dispatchEvent(new Event('change'));
         });
-        /*]]>*/
-    </script>
+
+        // Initialize quantity inputs based on checked state on page load
+        document.querySelectorAll('.variant-checkbox').forEach(checkbox => {
+            updateQuantityInputState(checkbox);
+        });
+
+        // Quantity +/- buttons logic
+        document.querySelectorAll('.quantity-minus').forEach(button => {
+            button.addEventListener('click', function() {
+                const quantityInput = this.closest('.qty-stepper').querySelector('.variant-quantity');
+                let currentValue = parseInt(quantityInput.value);
+                if (currentValue > 1) {
+                    quantityInput.value = currentValue - 1;
+                }
+            });
+        });
+
+        document.querySelectorAll('.quantity-plus').forEach(button => {
+            button.addEventListener('click', function() {
+                const quantityInput = this.closest('.qty-stepper').querySelector('.variant-quantity');
+                let currentValue = parseInt(quantityInput.value);
+                quantityInput.value = currentValue + 1;
+            });
+        });
+
+
+        // Category filtering logic
+        const categorySelect = document.getElementById('categorySelect');
+        const productCards = document.querySelectorAll('.product-card');
+
+        categorySelect.addEventListener('change', function() {
+            const selectedCategory = this.value;
+
+            productCards.forEach(card => {
+                const productCategory = card.getAttribute('data-category');
+                if (selectedCategory === '' || productCategory === selectedCategory) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Initial filter on page load
+        categorySelect.dispatchEvent(new Event('change'));
+    });
+    /*]]>*/
+</script>
 </body>
 </html>
