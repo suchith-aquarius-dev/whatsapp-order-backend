@@ -199,6 +199,10 @@
             height: 84px; /* keeps last product card from being hidden behind the sticky bar */
         }
 
+        .offcanvas.custom-height {
+            --bs-offcanvas-height: 70vh; /* Replace with your desired height */
+        }
+
         .wa-cart-bar {
             position: fixed;
             left: 0;
@@ -263,6 +267,7 @@
         /* Offcanvas cart panel */
         .wa-cart-offcanvas {
             max-height: 85vh;
+            --bs-offcanvas-height: 60vh;
             border-top-left-radius: 16px;
             border-top-right-radius: 16px;
         }
