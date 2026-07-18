@@ -191,12 +191,156 @@
         .qty-stepper .variant-quantity {
             -moz-appearance: textfield;
         }
+
+        /* =========================================================
+           Cart bar (sticky) + cart review offcanvas
+           ========================================================= */
+        .wa-cart-spacer {
+            height: 84px; /* keeps last product card from being hidden behind the sticky bar */
+        }
+
+        .wa-cart-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1030;
+            background-color: var(--wa-panel-bg, #fff);
+            border-top: 1px solid var(--wa-border, #E9EDEF);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+            padding: 10px 16px;
+            display: none; /* toggled on via JS once something is in the cart */
+        }
+        .wa-cart-bar.show-bar {
+            display: block;
+        }
+        .wa-cart-bar-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .wa-cart-bar-summary {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.25;
+            min-width: 0;
+        }
+        .wa-cart-bar-count {
+            font-size: 0.8rem;
+            color: var(--wa-text-muted, #667781);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        .wa-cart-bar-total {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--wa-text, #111B21);
+        }
+        .wa-cart-bar-btn {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .wa-cart-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background-color: #073b1e;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        /* Offcanvas cart panel */
+        .wa-cart-offcanvas {
+            max-height: 85vh;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }
+        .wa-cart-offcanvas .offcanvas-header {
+            border-bottom: 1px solid var(--wa-border, #E9EDEF);
+        }
+        .wa-cart-offcanvas .offcanvas-title {
+            font-weight: 700;
+        }
+        .wa-cart-empty-state {
+            text-align: center;
+            color: var(--wa-text-muted, #667781);
+            padding: 32px 16px;
+        }
+        .wa-cart-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 4px;
+            border-bottom: 1px solid var(--wa-border, #E9EDEF);
+        }
+        .wa-cart-item:last-child {
+            border-bottom: none;
+        }
+        .wa-cart-item-info {
+            flex-grow: 1;
+            min-width: 0;
+        }
+        .wa-cart-item-name {
+            font-weight: 600;
+            font-size: 0.92rem;
+            margin-bottom: 2px;
+            overflow-wrap: break-word;
+        }
+        .wa-cart-item-price {
+            font-size: 0.8rem;
+            color: var(--wa-text-muted, #667781);
+            margin: 0;
+        }
+        .wa-cart-item-line-total {
+            font-weight: 700;
+            font-size: 0.9rem;
+            min-width: 62px;
+            text-align: right;
+        }
+        .wa-cart-item-remove {
+            border: none;
+            background: transparent;
+            color: var(--wa-danger, #E35D5D);
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .wa-cart-item-remove:hover {
+            opacity: 0.75;
+        }
+        .wa-cart-summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 14px;
+            margin-top: 6px;
+            border-top: 1px solid var(--wa-border, #E9EDEF);
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+        #cartSubmitBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
 <div th:replace="~{fragments/layout :: topbar(title='Place Your Order', subtitle='Reply here to confirm your items', initials='PS', backUrl=null)}"></div>
 <div class="wa-container">
-    <form th:action="@{/order}" th:object="${orderForm}" method="post">
+    <form id="orderForm" th:action="@{/order}" th:object="${orderForm}" method="post">
         <input type="hidden" th:field="*{token}" />
         <input type="hidden" th:field="*{orderId}" />
 
@@ -252,7 +396,10 @@
                     <!-- Product Variant Selection -->
                     <div class="product-variant-selection">
                         <p class="variant-section-label">Choose your options</p>
-                        <div class="variant-item" th:each="variant : ${product.variants}">
+                        <div class="variant-item"
+                             th:each="variant : ${product.variants}"
+                             th:id="${'variant-item-' + variant.id}"
+                             th:attr="data-variant-id=${variant.id},data-product-name=${product.name},data-variant-name=${variant.name},data-price=${variant.price}">
                             <div class="form-check">
                                 <input class="form-check-input variant-checkbox" type="checkbox"
                                        th:name="productVariantIds" th:value="${variant.id}"
@@ -279,14 +426,49 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-success w-100 py-3 mt-4">Submit Order</button>
+        <div class="wa-cart-spacer"></div>
     </form>
+</div>
+
+<!-- Sticky cart bar - appears once at least one item has been added -->
+<div id="cartBar" class="wa-cart-bar">
+    <div class="wa-cart-bar-inner">
+        <div class="wa-cart-bar-summary">
+            <span class="wa-cart-bar-count" id="cartBarCount">0 items</span>
+            <span class="wa-cart-bar-total" id="cartBarTotal">&#8377;0.00</span>
+        </div>
+        <button type="button" class="btn btn-success wa-cart-bar-btn" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas" aria-controls="cartOffcanvas">
+            <span class="wa-cart-badge" id="cartBarBadge">0</span>
+            View Cart
+        </button>
+    </div>
+</div>
+
+<!-- Cart review offcanvas -->
+<div class="offcanvas offcanvas-bottom wa-cart-offcanvas" tabindex="-1" id="cartOffcanvas" aria-labelledby="cartOffcanvasLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="cartOffcanvasLabel">Your Order</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+        <div id="cartItemsList"></div>
+        <div id="cartEmptyState" class="wa-cart-empty-state" style="display:none;">
+            Your cart is empty.<br />Tap on a product's options above to add it here.
+        </div>
+        <div class="wa-cart-summary-row">
+            <span>Total</span>
+            <span id="cartTotalAmount">&#8377;0.00</span>
+        </div>
+        <button type="button" id="cartSubmitBtn" class="btn btn-success w-100 py-3 mt-3">Submit Order</button>
+    </div>
 </div>
 
 <th:block th:replace="~{fragments/layout :: scripts}"></th:block>
 <script th:inline="javascript">
     /*<![CDATA[*/
     document.addEventListener('DOMContentLoaded', function() {
+        const orderForm = document.getElementById('orderForm');
+
         // Function to update quantity input state
         function updateQuantityInputState(checkbox) {
             const variantItem = checkbox.closest('.variant-item');
@@ -313,6 +495,7 @@
         document.querySelectorAll('.variant-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', function() {
                 updateQuantityInputState(this);
+                renderCart();
             });
         });
 
@@ -321,7 +504,7 @@
             updateQuantityInputState(checkbox);
         });
 
-        // Quantity +/- buttons logic
+        // Quantity +/- buttons logic (product list)
         document.querySelectorAll('.quantity-minus').forEach(button => {
             button.addEventListener('click', function() {
                 const quantityInput = this.closest('.qty-stepper').querySelector('.variant-quantity');
@@ -329,6 +512,7 @@
                 if (currentValue > 1) {
                     quantityInput.value = currentValue - 1;
                 }
+                renderCart();
             });
         });
 
@@ -337,9 +521,9 @@
                 const quantityInput = this.closest('.qty-stepper').querySelector('.variant-quantity');
                 let currentValue = parseInt(quantityInput.value);
                 quantityInput.value = currentValue + 1;
+                renderCart();
             });
         });
-
 
         // Category filtering logic
         const categorySelect = document.getElementById('categorySelect');
@@ -360,6 +544,143 @@
 
         // Initial filter on page load
         categorySelect.dispatchEvent(new Event('change'));
+
+        /* =========================================================
+           Cart: reads the checked variant-items as the single source
+           of truth, so it always mirrors exactly what will be
+           submitted - no separate cart state to keep in sync.
+           ========================================================= */
+        const currencyFormatter = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const cartBar = document.getElementById('cartBar');
+        const cartBarCount = document.getElementById('cartBarCount');
+        const cartBarTotal = document.getElementById('cartBarTotal');
+        const cartBarBadge = document.getElementById('cartBarBadge');
+        const cartItemsList = document.getElementById('cartItemsList');
+        const cartEmptyState = document.getElementById('cartEmptyState');
+        const cartTotalAmount = document.getElementById('cartTotalAmount');
+        const cartSubmitBtn = document.getElementById('cartSubmitBtn');
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : value;
+            return div.innerHTML;
+        }
+
+        function getCartItems() {
+            const items = [];
+            document.querySelectorAll('.variant-item').forEach(function(variantItem) {
+                const checkbox = variantItem.querySelector('.variant-checkbox');
+                if (!checkbox || !checkbox.checked) {
+                    return;
+                }
+                const qtyInput = variantItem.querySelector('.variant-quantity');
+                const qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+                items.push({
+                    id: variantItem.getAttribute('data-variant-id'),
+                    productName: variantItem.getAttribute('data-product-name'),
+                    variantName: variantItem.getAttribute('data-variant-name'),
+                    price: parseFloat(variantItem.getAttribute('data-price')),
+                    qty: qty,
+                    variantItem: variantItem
+                });
+            });
+            return items;
+        }
+
+        function buildCartItemRow(item) {
+            const row = document.createElement('div');
+            row.className = 'wa-cart-item';
+            row.setAttribute('data-variant-id', item.id);
+
+            const lineTotal = item.price * item.qty;
+
+            const emDash = '\u2014';
+            const rupee = '\u20B9';
+            const minusSign = '\u2212';
+            const trashIcon = '\uD83D\uDDD1';
+
+            row.innerHTML =
+                '<div class="wa-cart-item-info">' +
+                    '<p class="wa-cart-item-name">' + escapeHtml(item.productName) + ' ' + emDash + ' ' + escapeHtml(item.variantName) + '</p>' +
+                    '<p class="wa-cart-item-price">' + rupee + currencyFormatter.format(item.price) + ' each</p>' +
+                '</div>' +
+                '<div class="qty-stepper">' +
+                    '<button type="button" class="quantity-minus cart-quantity-minus">' + minusSign + '</button>' +
+                    '<span class="variant-quantity cart-quantity-display">' + item.qty + '</span>' +
+                    '<button type="button" class="quantity-plus cart-quantity-plus">+</button>' +
+                '</div>' +
+                '<div class="wa-cart-item-line-total">' + rupee + currencyFormatter.format(lineTotal) + '</div>' +
+                '<button type="button" class="wa-cart-item-remove" aria-label="Remove item">' + trashIcon + '</button>';
+
+            // Wire the cart row's stepper back to the real inputs in the product list
+            row.querySelector('.cart-quantity-minus').addEventListener('click', function() {
+                const qtyInput = item.variantItem.querySelector('.variant-quantity');
+                const currentValue = parseInt(qtyInput.value, 10);
+                if (currentValue > 1) {
+                    qtyInput.value = currentValue - 1;
+                }
+                renderCart();
+            });
+            row.querySelector('.cart-quantity-plus').addEventListener('click', function() {
+                const qtyInput = item.variantItem.querySelector('.variant-quantity');
+                const currentValue = parseInt(qtyInput.value, 10);
+                qtyInput.value = currentValue + 1;
+                renderCart();
+            });
+            row.querySelector('.wa-cart-item-remove').addEventListener('click', function() {
+                const checkbox = item.variantItem.querySelector('.variant-checkbox');
+                checkbox.checked = false;
+                updateQuantityInputState(checkbox);
+                renderCart();
+            });
+
+            return row;
+        }
+
+        function renderCart() {
+            const items = getCartItems();
+            const itemCount = items.reduce(function(sum, item) { return sum + item.qty; }, 0);
+            const total = items.reduce(function(sum, item) { return sum + (item.price * item.qty); }, 0);
+
+            // Sticky bar
+            if (items.length > 0) {
+                cartBar.classList.add('show-bar');
+            } else {
+                cartBar.classList.remove('show-bar');
+            }
+            cartBarCount.textContent = itemCount + (itemCount === 1 ? ' item' : ' items');
+            cartBarTotal.textContent = '\u20B9' + currencyFormatter.format(total);
+            cartBarBadge.textContent = itemCount;
+
+            // Offcanvas list
+            cartItemsList.innerHTML = '';
+            if (items.length === 0) {
+                cartEmptyState.style.display = 'block';
+                cartSubmitBtn.setAttribute('disabled', 'disabled');
+            } else {
+                cartEmptyState.style.display = 'none';
+                cartSubmitBtn.removeAttribute('disabled');
+                items.forEach(function(item) {
+                    cartItemsList.appendChild(buildCartItemRow(item));
+                });
+            }
+            cartTotalAmount.textContent = '\u20B9' + currencyFormatter.format(total);
+        }
+
+        cartSubmitBtn.addEventListener('click', function() {
+            const offcanvasEl = document.getElementById('cartOffcanvas');
+            const offcanvasInstance = bootstrap.Offcanvas.getInstance(offcanvasEl);
+            if (offcanvasInstance) {
+                offcanvasInstance.hide();
+            }
+            // Let the offcanvas close so native validation messages (e.g. missing name) are visible
+            setTimeout(function() {
+                orderForm.requestSubmit();
+            }, 150);
+        });
+
+        // Initial render
+        renderCart();
     });
     /*]]>*/
 </script>
