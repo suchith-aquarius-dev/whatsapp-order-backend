@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(pageTitle='Admin Main Dashboard')}"></th:block>
+    <style>
+        .dashboard-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease-in-out;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+        .dashboard-card-body {
+            padding: 20px;
+            text-align: center;
+        }
+        .dashboard-card-body h5 {
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: #333;
+        }
+        .dashboard-card-body .btn {
+            width: 80%;
+            padding: 10px 0;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+<div th:replace="~{fragments/layout :: topbar(title='Admin Main Dashboard', subtitle='Central Hub', initials='AD', backUrl=null)}"></div>
+
+<div class="wa-container">
+    <h2 class="mb-4">Welcome to the Admin Dashboard</h2>
+    <p class="lead mb-5">Select an option below to manage your store.</p>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card dashboard-card">
+                <div class="card-body dashboard-card-body">
+                    <h5 class="card-title">Order Management</h5>
+                    <p class="card-text">View and filter customer orders.</p>
+                    <a th:href="@{/admin/orders}" class="btn btn-primary">Go to Orders</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card dashboard-card">
+                <div class="card-body dashboard-card-body">
+                    <h5 class="card-title">Product Catalog</h5>
+                    <p class="card-text">Add, edit, or remove products.</p>
+                    <a th:href="@{/admin/products/list}" class="btn btn-primary">Manage Products</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card dashboard-card">
+                <div class="card-body dashboard-card-body">
+                    <h5 class="card-title">Delivery Settings</h5>
+                    <p class="card-text">Configure holidays and weekly off days.</p>
+                    <a th:href="@{/admin/delivery-settings}" class="btn btn-primary">Update Settings</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

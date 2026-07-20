@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(pageTitle='Admin Orders')}"></th:block>
+    <style>
+        .order-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .order-card-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .order-card-body {
+            padding: 15px;
+        }
+        .order-card-footer {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .order-item-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 10px;
+        }
+        .order-item-list li {
+            padding: 5px 0;
+            border-bottom: 1px dashed #e9ecef;
+        }
+        .order-item-list li:last-child {
+            border-bottom: none;
+        }
+        .filter-controls {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .filter-controls .form-control,
+        .filter-controls .form-select {
+            margin-bottom: 10px;
+        }
+        .filter-controls .btn {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<div th:replace="~{fragments/layout :: topbar(title='Admin Orders', subtitle='Manage Orders', initials='AD', backUrl=@{/admin})}"></div>
+
+<div class="wa-container">
+    <h2 class="mb-4">Order Management</h2>
+
+    <div class="filter-controls">
+        <form id="filterForm" th:action="@{/admin/orders}" method="get">
+            <div class="mb-3">
+                <label for="filterType" class="form-label">Filter By Date Range:</label>
+                <select id="filterType" name="filterType" class="form-select" onchange="this.form.submit()">
+                    <option value="today" th:selected="${filterType == 'today'}">Today's Orders</option>
+                    <option value="date" th:selected="${filterType == 'date'}">Select by Date</option>
+                    <option value="week" th:selected="${filterType == 'week'}">Select by Week</option>
+                    <option value="month" th:selected="${filterType == 'month'}">Select by Month</option>
+                </select>
+            </div>
+
+            <div id="dateFilter" class="mb-3" th:style="${filterType == 'date' ? 'display:block;' : 'display:none;'}">
+                <label for="dateInput" class="form-label">Select Date:</label>
+                <input type="date" id="dateInput" name="date" class="form-control" th:value="${selectedDate}" onchange="this.form.submit()">
+            </div>
+
+            <div id="weekFilter" class="mb-3" th:style="${filterType == 'week' ? 'display:block;' : 'display:none;'}">
+                <label for="weekStartInput" class="form-label">Week Starting:</label>
+                <input type="date" id="weekStartInput" name="weekStart" class="form-control" th:value="${selectedWeekStart}" onchange="this.form.submit()">
+            </div>
+
+            <div id="monthFilter" class="mb-3" th:style="${filterType == 'month' ? 'display:block;' : 'display:none;'}">
+                <label for="monthInput" class="form-label">Select Month:</label>
+                <input type="month" id="monthInput" name="month" class="form-control" th:value="${selectedMonth}" onchange="this.form.submit()">
+            </div>
+
+            <div class="mb-3">
+                <label for="orderStatus" class="form-label">Filter By Status:</label>
+                <select id="orderStatus" name="orderStatus" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Statuses</option>
+                    <option th:each="status : ${orderStatuses}"
+                            th:value="${status}"
+                            th:text="${status}"
+                            th:selected="${status == selectedOrderStatus}">Status</option>
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <div th:if="${#lists.isEmpty(orders)}" class="alert alert-info" role="alert">
+        No orders found for the selected period.
+    </div>
+
+    <div th:each="order : ${orders}" class="order-card">
+        <div class="order-card-header">
+            <div>
+                <strong>Order ID:</strong> <span th:text="${order.id}"></span>
+            </div>
+            <div>
+                <strong>Status:</strong> <span th:text="${order.status}"></span>
+            </div>
+        </div>
+        <div class="order-card-body">
+            <p><strong>Customer Name:</strong> <span th:text="${order.customerName}"></span></p>
+            <p><strong>Customer Number:</strong> <span th:text="${order.waId}"></span></p>
+            <p><strong>Delivery Date:</strong> <span th:text="${#temporals.format(order.deliveryDate, 'dd-MM-yyyy')}"></span></p>
+            <p><strong>Delivery Time:</strong> <span th:text="${order.deliveryTime}"></span></p>
+            <p><strong>Order Items:</strong></p>
+            <ul class="order-item-list">
+                <li th:each="item : ${order.items}">
+                    <span th:text="${item.productName}">Item Name</span> x <span th:text="${item.quantity}">Quantity</span>
+                </li>
+            </ul>
+        </div>
+        <div class="order-card-footer">
+            Total: &#8377;<span th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 2, 'POINT')}">0.00</span>
+        </div>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterTypeSelect = document.getElementById('filterType');
+        const dateFilterDiv = document.getElementById('dateFilter');
+        const weekFilterDiv = document.getElementById('weekFilter');
+        const monthFilterDiv = document.getElementById('monthFilter');
+
+        function toggleFilterInputs() {
+            const selectedType = filterTypeSelect.value;
+            dateFilterDiv.style.display = (selectedType === 'date') ? 'block' : 'none';
+            weekFilterDiv.style.display = (selectedType === 'week') ? 'block' : 'none';
+            monthFilterDiv.style.display = (selectedType === 'month') ? 'block' : 'none';
+        }
+
+        filterTypeSelect.addEventListener('change', toggleFilterInputs);
+
+        // Initial call to set correct visibility based on pre-selected value (e.g., after form submission)
+        toggleFilterInputs();
+    });
+</script>
+</body>
+</html>
