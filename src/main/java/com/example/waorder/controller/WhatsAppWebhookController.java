@@ -24,14 +24,14 @@ public class WhatsAppWebhookController {
 
     private final WhatsAppProperties properties;
     private final WhatsAppApiService whatsAppApiService;
-    private final OrderRepository orderRepository; // Inject OrderRepository
+    private final OrderRepository orderRepository;
 
     public WhatsAppWebhookController(WhatsAppProperties properties,
                                      WhatsAppApiService whatsAppApiService,
-                                     OrderRepository orderRepository) { // Add to constructor
+                                     OrderRepository orderRepository) {
         this.properties = properties;
         this.whatsAppApiService = whatsAppApiService;
-        this.orderRepository = orderRepository; // Initialize
+        this.orderRepository = orderRepository;
     }
 
     /**
@@ -72,19 +72,45 @@ public class WhatsAppWebhookController {
                     }
                     for (JsonNode message : messages) {
                         String waId = message.path("from").asText();
-                        String type = message.path("type").asText();
-                        log.info("Inbound WhatsApp message from {} type={}", waId, type);
+                        String messageType = message.path("type").asText();
+                        log.info("Inbound WhatsApp message from {} type={}", waId, messageType);
 
-                        // Create a new order with CREATED status
-                        Order newOrder = new Order();
-                        newOrder.setWaId(waId);
-                        newOrder.setStatus(Order.OrderStatus.CREATED);
-                        Order savedOrder = orderRepository.save(newOrder); // Save to get the ID
+                        if ("text".equals(messageType)) {
+                            String textBody = message.path("text").path("body").asText();
+                            if ("ORDER".equalsIgnoreCase(textBody.trim())) {
+                                // User sent "ORDER" text, proceed to send the order form link
+                                Order newOrder = new Order();
+                                newOrder.setWaId(waId);
+                                newOrder.setStatus(Order.OrderStatus.CREATED);
+                                Order savedOrder = orderRepository.save(newOrder);
+                                whatsAppApiService.sendOrderFormLink(waId, savedOrder.getId());
+                            } else {
+                                // User sent other text, send the interactive welcome message with button
+                                whatsAppApiService.sendWelcomeMessageWithOrderButton(waId);
+                            }
+                        } else if ("interactive".equals(messageType)) {
+                            JsonNode interactive = message.path("interactive");
+                            String interactiveType = interactive.path("type").asText();
 
-                        // Any inbound message (text, or tapping a quick reply) triggers
-                        // sending the order-form link. Customize this condition to match
-                        // on specific keywords ("order", "menu") if needed.
-                        whatsAppApiService.sendOrderFormLink(waId, savedOrder.getId()); // Pass order ID
+                            if ("button_reply".equals(interactiveType)) {
+                                String buttonId = interactive.path("button_reply").path("id").asText();
+                                if ("ORDER_BUTTON_CLICK".equals(buttonId)) {
+                                    // User clicked the "Order" button, proceed to send the order form link
+                                    Order newOrder = new Order();
+                                    newOrder.setWaId(waId);
+                                    newOrder.setStatus(Order.OrderStatus.CREATED);
+                                    Order savedOrder = orderRepository.save(newOrder);
+                                    whatsAppApiService.sendOrderFormLink(waId, savedOrder.getId());
+                                } else {
+                                    log.info("Unhandled interactive button click with ID: {}", buttonId);
+                                }
+                            } else {
+                                log.info("Unhandled interactive message type: {}", interactiveType);
+                            }
+                        } else {
+                            // Ignore other message types (image, video, audio, etc.)
+                            log.info("Ignoring non-text/non-interactive message of type: {}", messageType);
+                        }
                     }
                 }
             }

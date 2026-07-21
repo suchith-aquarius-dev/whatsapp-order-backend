@@ -131,7 +131,7 @@ public class OrderController {
                     } else if (existingOrder.getStatus() == Order.OrderStatus.CANCELLED) {
                         statusMessage = "This order has been cancelled.";
                     } else { // Order.OrderStatus.PAYMENT_LINK_SENT
-                        statusMessage = "Your order has been placed, and a payment link has been sent to your WhatsApp. Please complete the payment there.";
+                        statusMessage = "Your order has been placed, and payment instructions have been sent to your WhatsApp. Please complete the payment there.";
                     }
                     model.addAttribute("statusMessage", statusMessage);
                     return "order-status";
@@ -273,14 +273,16 @@ public class OrderController {
                 total = total.add(variant.getPrice().multiply(BigDecimal.valueOf(qty)));
             }
             order.setTotalAmount(total);
+            // Keep status as PAYMENT_LINK_SENT, as the UPI instructions serve as the "payment link"
             order.setStatus(Order.OrderStatus.PAYMENT_LINK_SENT);
 
             Order saved = orderRepository.save(order);
 
-            whatsAppApiService.sendPayNowMessage(saved);
+            // Call the new method to send order confirmation and UPI payment instructions
+            whatsAppApiService.sendOrderConfirmationWithUpiPayment(saved);
 
             model.addAttribute("isSuccess", true);
-            model.addAttribute("message", "Thank you for your order confirmation! You’ll receive a payment link on your WhatsApp. Please use this link to finalise your payment. If for any reason, you do not receive the link within 2 mins, please initiate a new conversation.");
+            model.addAttribute("message", "Thank you for your order confirmation! Payment instructions have been sent to your WhatsApp. Please complete the payment there to confirm your order. If for any reason, you do not receive the instructions within 2 mins, please initiate a new conversation.");
             model.addAttribute("order", saved);
 
         } catch (Exception e) {

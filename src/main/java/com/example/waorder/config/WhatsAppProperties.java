@@ -17,4 +17,6 @@ public class WhatsAppProperties {
     private String paymentBaseUrl;
     private String paymentTemplateName;
     private String whatsappNumber; // Added for wa.me links
+    private String upiId; // New property for UPI ID
+    private String upiQrCodeImageUrl; // New property for UPI QR Code Image URL
 }
